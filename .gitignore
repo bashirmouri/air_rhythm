@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated on first run
+maps/
+assets/
+models/
+
+# Per-player settings
+settings.json
