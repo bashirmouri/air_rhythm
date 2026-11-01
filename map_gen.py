@@ -1,5 +1,5 @@
-"""Builds the first song's beatmap from the song structure in audio_gen.py,
-and generates all audio assets on first launch."""
+"""Builds the first song's beatmaps (one per level) from the song structure in
+audio_gen.py, and generates all audio assets on first launch."""
 import json
 import math
 import os
@@ -15,15 +15,27 @@ CALIBRATION_AUDIO = os.path.join(config.ASSETS_DIR, "calibration.wav")
 
 DIFFICULTY = {"ar": 5, "cs": 2.5, "od": 2, "hp": 3}   # gentle: webcams add delay
 
+# Every level plays the same song. Easy has half the circles (none faster than one
+# per second), bigger circles, more time to read them, looser timing and shorter jumps.
+LEVELS = {
+    "Easy": {"file": "easy.json", "max_jump": 120,
+             "difficulty": {"ar": 3, "cs": 1.5, "od": 0, "hp": 2}},
+    "Normal": {"file": "beatmap.json", "max_jump": 190, "difficulty": DIFFICULTY},
+}
+LEVEL_PATHS = {name: os.path.join(FIRST_MAP_DIR, lv["file"]) for name, lv in LEVELS.items()}
 
-def note_onsets():
-    """Where the circles go in time, following the music:
-    intro/break = every 2 beats, verse = every beat, build = every beat plus a
-    snare double, drop = on the melody notes."""
+
+def note_onsets(level="Normal"):
+    """Where the circles go in time, following the music.
+    Normal: intro/break = every 2 beats, verse = every beat, build = every beat
+    plus a snare double, drop = on the melody notes.
+    Easy: one circle per bar in the quiet parts, every 2 beats everywhere else."""
     out = []
     for bar in range(N_BARS):
         sec = section_of(bar)
-        if sec in ("intro", "break"):
+        if level == "Easy":
+            beats = [0] if sec in ("intro", "break", "outro") else [0, 2]
+        elif sec in ("intro", "break"):
             beats = [0, 2]
         elif sec == "verse":
             beats = [0, 1, 2, 3]
@@ -37,7 +49,7 @@ def note_onsets():
     return out
 
 
-def place(times, radius, seed=7):
+def place(times, radius, max_jump=190, seed=7):
     """Positions for each circle. Spacing grows with the time gap (fast notes =
     close together), the direction turns smoothly, and circles stay on the
     playfield without covering the last few."""
@@ -50,7 +62,7 @@ def place(times, radius, seed=7):
 
     for prev_t, t in zip(times, times[1:]):
         gap_ms = (t - prev_t) * 1000
-        dist = min(max(gap_ms * 0.24, 2 * radius * 1.1), 190)
+        dist = min(max(gap_ms * 0.24, 2 * radius * 1.1), max_jump)
         for attempt in range(60):
             if attempt < 30:
                 turn = rng.choice((-1, 1)) * rng.uniform(math.radians(25), math.radians(100))
@@ -75,10 +87,11 @@ def place(times, radius, seed=7):
     return positions
 
 
-def make_beatmap():
-    radius = 54.4 - 4.48 * DIFFICULTY["cs"]
-    onsets = note_onsets()
-    positions = place([t for t, _ in onsets], radius)
+def make_beatmap(level="Normal"):
+    lv = LEVELS[level]
+    radius = 54.4 - 4.48 * lv["difficulty"]["cs"]
+    onsets = note_onsets(level)
+    positions = place([t for t, _ in onsets], radius, lv["max_jump"])
 
     objects, last_bar, last_sec = [], None, None
     for (t, bar), (x, y) in zip(onsets, positions):
@@ -89,23 +102,24 @@ def make_beatmap():
         last_bar, last_sec = bar, sec
 
     return {
-        "title": "First Steps", "artist": "Air Rhythm", "version": "Normal",
+        "title": "First Steps", "artist": "Air Rhythm", "version": level,
         "audio": "audio.wav", "bpm": BPM, "lead_in_ms": config.LEAD_IN_MS,
-        "difficulty": DIFFICULTY, "objects": objects,
+        "difficulty": lv["difficulty"], "objects": objects,
     }
 
 
 def ensure_assets():
-    """Generate the song, its beatmap and the calibration track if missing."""
+    """Generate the song, its beatmaps and the calibration track if missing."""
     os.makedirs(FIRST_MAP_DIR, exist_ok=True)
     os.makedirs(config.ASSETS_DIR, exist_ok=True)
     audio = os.path.join(FIRST_MAP_DIR, "audio.wav")
     if not os.path.exists(audio):
         print("Generating the first song (one-time, a few seconds)...")
         write_wav(audio, make_first_steps())
-    if not os.path.exists(FIRST_MAP_PATH):
-        with open(FIRST_MAP_PATH, "w") as f:
-            json.dump(make_beatmap(), f, indent=1)
+    for level, path in LEVEL_PATHS.items():
+        if not os.path.exists(path):
+            with open(path, "w") as f:
+                json.dump(make_beatmap(level), f, indent=1)
     if not os.path.exists(CALIBRATION_AUDIO):
         write_wav(CALIBRATION_AUDIO, make_calibration())
 

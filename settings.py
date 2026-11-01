@@ -6,6 +6,7 @@ from config import SETTINGS_PATH
 DEFAULTS = {
     "input_offset_ms": 0.0,   # measured by the calibration screen
     "input_mode": "hand",     # "hand" or "mouse"
+    "level": "Easy",          # "Easy" or "Normal" (see map_gen.LEVELS)
     "no_fail": False,
     "show_camera": True,
 }

@@ -15,7 +15,7 @@ import settings as settings_mod
 import ui
 from audio_gen import make_hitsound
 from inputs import HandInput, MouseInput
-from map_gen import FIRST_MAP_PATH, ensure_assets
+from map_gen import LEVEL_PATHS, ensure_assets
 from playfield import Playfield
 
 
@@ -36,7 +36,9 @@ class App:
         if args.mouse:
             self.settings["input_mode"] = "mouse"
         self.autoplay = args.autoplay
-        self.map_path = args.map or FIRST_MAP_PATH
+        if self.settings["level"] not in LEVEL_PATHS:
+            self.settings["level"] = settings_mod.DEFAULTS["level"]
+        self.map_path = args.map or LEVEL_PATHS[self.settings["level"]]
         self.playfield = Playfield(config.WINDOW_W, config.WINDOW_H)
         self.background = ui.make_background(config.WINDOW_W, config.WINDOW_H)
         self.hitsound = pygame.sndarray.make_sound(make_hitsound())
@@ -56,6 +58,10 @@ class App:
             self.input.close()
         self.input = HandInput(self.playfield) if mode == "hand" else MouseInput(self.playfield)
         self.settings["input_mode"] = mode
+
+    def set_level(self, level):
+        self.settings["level"] = level
+        self.map_path = LEVEL_PATHS[level]
 
     def goto(self, screen):
         if self.input:

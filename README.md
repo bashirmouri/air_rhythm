@@ -24,6 +24,7 @@ calibration measures it and the game subtracts it from every hit.
 |---|---|
 | Pinch / click / Z / X | Hit, or press a menu button |
 | Enter | Play |
+| L | Switch level: Easy / Normal |
 | C | Calibrate |
 | I | Switch hand / mouse input |
 | N | No-fail on/off |
@@ -44,7 +45,7 @@ calibration measures it and the game subtracts it from every hit.
 | `screens.py` | Menu, results and calibration screens |
 | `beatmap.py` | Beatmap format + osu! difficulty formulas (AR, CS, OD) |
 | `audio_gen.py` | Synthesizes the song, the metronome and the hitsound with NumPy |
-| `map_gen.py` | Places circles on the song's beats and melody |
+| `map_gen.py` | Places circles on the song's beats and melody, one beatmap per level (`LEVELS`) |
 | `config.py` | All tuning values (pinch thresholds, smoothing, active zone...) |
 
 ## Tuning tips
@@ -53,6 +54,17 @@ calibration measures it and the game subtracts it from every hit.
 - **Cursor shaky:** lower `FILTER_MIN_CUTOFF`. **Cursor lags on jumps:** raise `FILTER_BETA`.
 - **Too much arm movement:** shrink `ACTIVE_ZONE` (the white box in the camera view).
 - **Lighting:** a bright, even light on your hand makes tracking far more stable.
+
+## Levels
+
+*First Steps* comes in two levels, chosen with the **Level** button (or **L**) in the menu:
+
+- **Easy** (default): 60 circles, never faster than one per second, bigger circles that
+  appear earlier, looser timing and shorter jumps.
+- **Normal**: 128 circles that follow the melody in the drop.
+
+To add a level, add an entry to `LEVELS` in `map_gen.py` (and a rule in `note_onsets`).
+Missing beatmaps are generated on the next launch.
 
 ## Beatmap format
 

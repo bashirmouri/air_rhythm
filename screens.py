@@ -10,7 +10,9 @@ import ui
 from audio_gen import CALIB_BEAT_MS, CALIB_COUNT_IN, CALIB_FIRST_MS, CALIB_TAPS
 from beatmap import load_beatmap
 from clock import SongClock
-from map_gen import CALIBRATION_AUDIO
+from map_gen import CALIBRATION_AUDIO, LEVEL_PATHS
+
+LEVELS = list(LEVEL_PATHS)     # menu order: Easy, Normal
 from play_screen import COMBO_COLORS, PlayScreen
 
 
@@ -64,20 +66,26 @@ class _ButtonScreen:
 class MenuScreen(_ButtonScreen):
     def __init__(self, app):
         self.app = app
-        self.map_title = load_beatmap(app.map_path).title
+        self._load_map_info()
         W, H = app.surface.get_size()
-        cx = W // 2
-        self.buttons = [
-            ui.Button("", (cx, 330), action=self.play),
-            ui.Button("Calibrate offset", (cx, 405), action=self.calibrate),
-            ui.Button("", (cx, 480), action=self.toggle_input),
-            ui.Button("", (cx, 555), action=self.toggle_no_fail),
-            ui.Button("Quit", (cx, 630), action=app.quit),
-        ]
+        cx, size = W // 2, (420, 54)
+        actions = [(self.play, ""), (self.next_level, ""), (self.calibrate, "Calibrate offset"),
+                   (self.toggle_input, ""), (self.toggle_no_fail, ""), (app.quit, "Quit")]
+        self.buttons = [ui.Button(label, (cx, 318 + 64 * k), size, action)
+                        for k, (action, label) in enumerate(actions)]
         self._t = 0
 
     def play(self):
         self.app.goto(PlayScreen(self.app, self.app.map_path, self.app.autoplay))
+
+    def _load_map_info(self):
+        bm = load_beatmap(self.app.map_path)
+        self.map_title, self.map_version = bm.title, bm.version
+
+    def next_level(self):
+        i = LEVELS.index(self.app.settings["level"])
+        self.app.set_level(LEVELS[(i + 1) % len(LEVELS)])
+        self._load_map_info()
 
     def calibrate(self):
         self.app.goto(CalibrationScreen(self.app))
@@ -90,6 +98,7 @@ class MenuScreen(_ButtonScreen):
 
     def handle(self, events):
         keys = {pygame.K_RETURN: self.play, pygame.K_SPACE: self.play, pygame.K_c: self.calibrate,
+                pygame.K_l: self.next_level,
                 pygame.K_i: self.toggle_input, pygame.K_n: self.toggle_no_fail,
                 pygame.K_ESCAPE: self.app.quit, pygame.K_q: self.app.quit}
         self.handle_mouse(events)
@@ -99,9 +108,10 @@ class MenuScreen(_ButtonScreen):
 
     def draw(self, surf):
         s = self.app.settings
-        self.buttons[0].label = f"Play: {self.map_title}"
-        self.buttons[2].label = f"Input: {'Hand (webcam)' if self.app.input.kind == 'hand' else 'Mouse'}"
-        self.buttons[3].label = f"No-fail: {'on' if s['no_fail'] else 'off'}"
+        self.buttons[0].label = f"Play: {self.map_title} [{self.map_version}]"
+        self.buttons[1].label = f"Level: {s['level']}"
+        self.buttons[3].label = f"Input: {'Hand (webcam)' if self.app.input.kind == 'hand' else 'Mouse'}"
+        self.buttons[4].label = f"No-fail: {'on' if s['no_fail'] else 'off'}"
 
         surf.blit(self.app.background, (0, 0))
         W, H = surf.get_size()
@@ -114,7 +124,7 @@ class MenuScreen(_ButtonScreen):
         ui.text(surf, "AIR RHYTHM", 110, ui.WHITE, (W // 2, 150))
         ui.text(surf, "click the beat with your hand", 34, ui.DIM, (W // 2, 225))
         self.draw_buttons(surf)
-        ui.text(surf, f"Offset: {s['input_offset_ms']:+.0f} ms     Enter: play   C: calibrate   "
+        ui.text(surf, f"Offset: {s['input_offset_ms']:+.0f} ms     Enter: play   L: level   C: calibrate   "
                       f"I: input   N: no-fail   V: camera view   F11: fullscreen",
                 22, ui.DIM, (W // 2, H - 22))
         status = self.app.input.status_text()
