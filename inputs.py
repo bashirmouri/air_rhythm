@@ -97,7 +97,7 @@ class HandInput:
     def status_text(self):
         tr = self.tracker
         if tr.error:
-            return f"Camera problem: {tr.error}  (press I for mouse mode)"
+            return f"Camera problem: {tr.error}  (click Input or press I for mouse mode)"
         if not tr.ready:
             return "Starting camera..."
         if not tr.visible:

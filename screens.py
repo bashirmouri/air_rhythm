@@ -2,6 +2,7 @@
 mouse or by pinching over them."""
 import math
 import statistics
+import time
 
 import pygame
 
@@ -13,9 +14,37 @@ from map_gen import CALIBRATION_AUDIO
 from play_screen import COMBO_COLORS, PlayScreen
 
 
+MOUSE_ACTIVE_S = 2.0     # after the mouse moves, its cursor is shown instead of the hand for this long
+
+
 class _ButtonScreen:
-    """Shared logic: hover with the cursor, press (click or pinch) to activate."""
+    """Shared logic: hover with the cursor, press (click or pinch) to activate.
+    The mouse works on these screens even in hand mode, so the buttons can
+    still be reached when the camera isn't working."""
     buttons = []
+    _mouse_moved_at = None
+
+    def handle_mouse(self, events):
+        if self.app.input.kind == "mouse":
+            return                      # MouseInput already turns clicks into presses
+        for e in events:
+            if e.type == pygame.MOUSEMOTION:
+                self._mouse_moved_at = time.perf_counter()
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                self._mouse_moved_at = time.perf_counter()
+                for b in self.buttons:
+                    if b.contains(e.pos):
+                        b.action()
+                        return
+
+    def cursor_override(self):
+        """Show the mouse instead of the hand while it's being used, or when no hand is seen."""
+        if self.app.input.kind == "mouse" or self._mouse_moved_at is None:
+            return None
+        if (self.app.input.cursor() is None
+                or time.perf_counter() - self._mouse_moved_at < MOUSE_ACTIVE_S):
+            return self.app.playfield.to_osu(*pygame.mouse.get_pos())
+        return None
 
     def update(self):
         for _, pos in self.app.input.take_presses():
@@ -63,6 +92,7 @@ class MenuScreen(_ButtonScreen):
         keys = {pygame.K_RETURN: self.play, pygame.K_SPACE: self.play, pygame.K_c: self.calibrate,
                 pygame.K_i: self.toggle_input, pygame.K_n: self.toggle_no_fail,
                 pygame.K_ESCAPE: self.app.quit, pygame.K_q: self.app.quit}
+        self.handle_mouse(events)
         for e in events:
             if e.type == pygame.KEYDOWN and e.key in keys:
                 keys[e.key]()
@@ -111,6 +141,7 @@ class ResultsScreen(_ButtonScreen):
         self.app.goto(MenuScreen(self.app))
 
     def handle(self, events):
+        self.handle_mouse(events)
         for e in events:
             if e.type == pygame.KEYDOWN:
                 if e.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_r):
