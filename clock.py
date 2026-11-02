@@ -15,14 +15,18 @@ class SongClock:
         self._pending = False
 
     def start(self, audio_path, lead_in_ms):
-        pygame.mixer.music.load(audio_path)
+        # Without a sound device the clock still runs (silent play); only the music is skipped.
+        self.audio = pygame.mixer.get_init() is not None
+        if self.audio:
+            pygame.mixer.music.load(audio_path)
         # Song time is negative during the lead-in, then 0 when the music starts.
         self.start_t = time.perf_counter() + lead_in_ms / 1000
         self._pending = True
 
     def update(self):
         if self._pending and time.perf_counter() >= self.start_t:
-            pygame.mixer.music.play()
+            if self.audio:
+                pygame.mixer.music.play()
             self.start_t = time.perf_counter()   # re-align to the real start
             self._pending = False
 
@@ -33,6 +37,8 @@ class SongClock:
         return (t - self.start_t) * 1000
 
     def stop(self, fade_ms=0):
+        if not getattr(self, "audio", False):
+            return
         if fade_ms:
             pygame.mixer.music.fadeout(fade_ms)
         else:

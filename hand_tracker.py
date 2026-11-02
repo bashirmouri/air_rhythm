@@ -11,6 +11,8 @@ The capture time is taken right when the frame arrives, so a hit is judged at
 the moment the pinch was *seen*, not when processing finished.
 """
 import collections
+import hashlib
+import logging
 import os
 import queue
 import threading
@@ -24,18 +26,58 @@ from mediapipe.tasks.python import BaseOptions, vision
 
 import config
 
+log = logging.getLogger(__name__)
+
+# Pinned to version 1 (not "latest"), so the checksum below can never go stale.
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
-             "hand_landmarker/float16/latest/hand_landmarker.task")
+             "hand_landmarker/float16/1/hand_landmarker.task")
+MODEL_SHA256 = "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
+MODEL_TIMEOUT_S = 30
 
 THUMB_TIP, INDEX_TIP, WRIST, MIDDLE_MCP = 4, 8, 0, 9
 
 
+class ModelError(Exception):
+    """The hand model is missing and couldn't be downloaded. The message is shown to the player."""
+
+
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def ensure_model():
-    os.makedirs(config.MODELS_DIR, exist_ok=True)
+    """Path to a verified hand model, downloading it if needed. The download goes to a
+    .part file and is only renamed once complete and checked, so an interrupted
+    download can never leave a broken model behind."""
     path = os.path.join(config.MODELS_DIR, "hand_landmarker.task")
-    if not os.path.exists(path):
-        print("Downloading hand landmark model (~8 MB)...")
-        urllib.request.urlretrieve(MODEL_URL, path)
+    if os.path.exists(path):
+        if _sha256(path) == MODEL_SHA256:
+            return path
+        log.warning("Hand model %s is damaged, downloading it again", path)
+        os.remove(path)
+    part = path + ".part"
+    log.info("Downloading hand landmark model (~8 MB) from %s", MODEL_URL)
+    try:
+        os.makedirs(config.MODELS_DIR, exist_ok=True)
+        with urllib.request.urlopen(MODEL_URL, timeout=MODEL_TIMEOUT_S) as r, open(part, "wb") as f:
+            while chunk := r.read(1 << 16):
+                f.write(chunk)
+        if _sha256(part) != MODEL_SHA256:
+            raise ModelError("The downloaded hand-tracking model is damaged. Restart to try again.")
+        os.replace(part, path)
+    except ModelError:
+        raise
+    except OSError as e:                # no internet, timeout, DNS, disk full... (URLError is an OSError)
+        log.warning("Hand model download failed: %s", e)
+        raise ModelError("Couldn't download the hand-tracking model (no internet?).") from e
+    finally:
+        if os.path.exists(part):
+            os.remove(part)
+    log.info("Hand model saved to %s", path)
     return path
 
 
@@ -171,8 +213,11 @@ class HandTracker:
     def _run(self):
         try:
             self._loop()
-        except Exception as e:          # show the problem in-game instead of crashing
+        except ModelError as e:         # show the problem in-game instead of crashing
             self.error = str(e)
+        except Exception as e:
+            log.exception("Hand tracking stopped")
+            self.error = f"Camera problem: {e}"
 
     def _loop(self):
         options = vision.HandLandmarkerOptions(
@@ -190,11 +235,15 @@ class HandTracker:
         cap.set(cv2.CAP_PROP_FPS, config.CAMERA_FPS)
         if not cap.isOpened():
             raise RuntimeError("Could not open the webcam")
+        log.info("Camera %d opened: %dx%d, reports %.0f fps", config.CAMERA_INDEX,
+                 cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+                 cap.get(cv2.CAP_PROP_FPS))
 
         fu = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
         fv = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
         pinch = PinchDetector()
         last_ts, last_seen, frame_times = -1, None, []
+        fps_logged_at = time.perf_counter() + 5      # log the real camera fps once, after warm-up
 
         try:
             while not self._stop.is_set():
@@ -243,6 +292,9 @@ class HandTracker:
                     self.preview_id += 1
                     self.fps = len(frame_times)
                     self.ready = True
+                if fps_logged_at and t > fps_logged_at:
+                    log.info("Camera running at %d fps (with hand tracking)", len(frame_times))
+                    fps_logged_at = None
         finally:
             cap.release()
             landmarker.close()

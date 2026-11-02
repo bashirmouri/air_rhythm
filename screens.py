@@ -97,7 +97,7 @@ class MenuScreen(_ButtonScreen):
                          lambda: (["Hand", "Mouse"], "Hand" if app.input.kind == "hand" else "Mouse")),
             ui.OptionRow((x, 486, w, 52), "No-fail", self.toggle_no_fail, lambda: s["no_fail"]),
             ui.OptionRow((x, 546, w, 52), "Calibrate offset", self.calibrate,
-                         lambda: f"{s['input_offset_ms']:+.0f} ms"),
+                         lambda: f"{s['input_offset_ms']:+.0f} ms" if app.audio_ok else "needs sound"),
             ui.OptionRow((x, 606, w, 52), "Quit", app.quit, danger=True),
         ]
         # right side: a hit circle that keeps getting hit, as a preview of the game
@@ -118,7 +118,8 @@ class MenuScreen(_ButtonScreen):
         self._load_map_info()
 
     def calibrate(self):
-        self.app.goto(CalibrationScreen(self.app))
+        if self.app.audio_ok:                # calibration is done by ear: it needs sound
+            self.app.goto(CalibrationScreen(self.app))
 
     def toggle_music(self):
         self.app.settings["menu_music"] = not self.app.settings["menu_music"]
@@ -172,6 +173,8 @@ class MenuScreen(_ButtonScreen):
             msg, dot = "Mouse input", ui.MUTED
         elif status:
             msg, dot = status, ui.WARN
+        elif self.app.warning:
+            msg, dot = self.app.warning, ui.WARN
         else:
             msg, dot = "Hand tracking ready", ui.OK
         img = ui.render(msg, 15, ui.WHITE, "semibold")

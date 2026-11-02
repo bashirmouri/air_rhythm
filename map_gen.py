@@ -1,13 +1,21 @@
 """Builds the first song's beatmaps (one per level) from the song structure in
 audio_gen.py, and generates all audio assets on first launch."""
 import json
+import logging
 import math
 import os
 import random
 
 import config
 from audio_gen import (BAR, BEAT, BPM, DROP_MELODY, N_BARS, make_calibration,
-                       make_first_steps, make_menu_music, section_of, write_wav)
+                       make_first_steps, make_menu_music, section_of, wav_is_valid, write_wav)
+from beatmap import load_beatmap
+
+log = logging.getLogger(__name__)
+
+
+class StartupError(Exception):
+    """A problem the player can fix (disk full, folder not writable). The message is shown as is."""
 
 FIRST_MAP_DIR = os.path.join(config.MAPS_DIR, "first_steps")
 FIRST_MAP_PATH = os.path.join(FIRST_MAP_DIR, "beatmap.json")
@@ -109,24 +117,49 @@ def make_beatmap(level="Normal"):
     }
 
 
+def _beatmap_is_valid(path):
+    try:
+        return len(load_beatmap(path).objects) > 0
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def _write_json(path, data):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, path)
+
+
 def ensure_assets():
-    """Generate the song, its beatmaps, the calibration track and the menu music if missing."""
-    os.makedirs(FIRST_MAP_DIR, exist_ok=True)
-    os.makedirs(config.ASSETS_DIR, exist_ok=True)
+    """Generate the song, its beatmaps, the calibration track and the menu music if they
+    are missing or damaged (truncated audio, broken JSON). Raises StartupError if the
+    files can't be written."""
     audio = os.path.join(FIRST_MAP_DIR, "audio.wav")
-    if not os.path.exists(audio):
-        print("Generating the first song (one-time, a few seconds)...")
-        write_wav(audio, make_first_steps())
-    for level, path in LEVEL_PATHS.items():
-        if not os.path.exists(path):
-            with open(path, "w") as f:
-                json.dump(make_beatmap(level), f, indent=1)
-    if not os.path.exists(CALIBRATION_AUDIO):
-        write_wav(CALIBRATION_AUDIO, make_calibration())
-    if not os.path.exists(MENU_MUSIC):
-        write_wav(MENU_MUSIC, make_menu_music())
+    wavs = [(audio, make_first_steps, "the first song"),
+            (CALIBRATION_AUDIO, make_calibration, "the calibration track"),
+            (MENU_MUSIC, make_menu_music, "the menu music")]
+    try:
+        os.makedirs(FIRST_MAP_DIR, exist_ok=True)
+        os.makedirs(config.ASSETS_DIR, exist_ok=True)
+        for path, make, what in wavs:
+            if not wav_is_valid(path):
+                if os.path.exists(path):
+                    log.warning("%s is damaged, generating it again", path)
+                log.info("Generating %s (one-time, a few seconds)...", what)
+                write_wav(path, make())
+        for level, path in LEVEL_PATHS.items():
+            if not _beatmap_is_valid(path):
+                if os.path.exists(path):
+                    log.warning("%s is damaged, generating it again", path)
+                _write_json(path, make_beatmap(level))
+    except OSError as e:
+        raise StartupError(
+            f"Air Rhythm couldn't create its game files in\n{config.DATA_DIR}\n\n{e}\n\n"
+            "Free up some disk space, or check that this folder can be written to.") from e
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     ensure_assets()
-    print("Assets ready.")
+    log.info("Assets ready in %s", config.DATA_DIR)

@@ -6,6 +6,7 @@
 Generating the music ourselves means the tempo and every note time are known
 exactly, so the beatmap lines up perfectly, and there are no copyright issues.
 """
+import os
 import wave
 
 import numpy as np
@@ -396,9 +397,27 @@ def _master(buf, peak):
 
 
 def write_wav(path, stereo):
+    """Write to a temporary file, then swap it in: a crash or full disk mid-write
+    never leaves a half-written file behind."""
     data = (np.clip(stereo, -1, 1) * 32767).astype(np.int16)
-    with wave.open(path, "wb") as w:
-        w.setnchannels(2)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes(data.tobytes())
+    tmp = path + ".tmp"
+    try:
+        with wave.open(tmp, "wb") as w:
+            w.setnchannels(2)
+            w.setsampwidth(2)
+            w.setframerate(SR)
+            w.writeframes(data.tobytes())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def wav_is_valid(path):
+    """True if the file is a readable WAV whose audio data is all there (not truncated)."""
+    try:
+        with wave.open(path, "rb") as w:
+            frames, frame_bytes = w.getnframes(), w.getnchannels() * w.getsampwidth()
+        return frames > 0 and os.path.getsize(path) >= 44 + frames * frame_bytes
+    except (OSError, EOFError, wave.Error):
+        return False

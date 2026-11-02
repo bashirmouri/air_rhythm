@@ -1,11 +1,35 @@
 """Global constants for Air Rhythm. Tweak these to tune how the game feels."""
 import os
+import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-MAPS_DIR = os.path.join(ROOT, "maps")
-ASSETS_DIR = os.path.join(ROOT, "assets")
-MODELS_DIR = os.path.join(ROOT, "models")
-SETTINGS_PATH = os.path.join(ROOT, "settings.json")
+
+
+def user_data_dir():
+    """Per-user folder for settings, generated audio/maps, the hand model and logs.
+    Installed games usually can't write next to their own files, so nothing goes there.
+    Windows uses Local AppData (not Roaming): ~30 MB of regenerable audio shouldn't sync."""
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser(r"~\AppData\Local")
+        return os.path.join(base, "AirRhythm")
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Application Support/AirRhythm")
+    base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    return os.path.join(base, "air-rhythm")
+
+
+# Portable mode keeps everything next to the game (USB stick, or running from source):
+# start with --portable, or put a file named portable.txt in the game folder.
+# AIR_RHYTHM_DATA_DIR overrides the location (used by tests).
+PORTABLE = "--portable" in sys.argv or os.path.exists(os.path.join(ROOT, "portable.txt"))
+DATA_DIR = os.environ.get("AIR_RHYTHM_DATA_DIR") or (ROOT if PORTABLE else user_data_dir())
+MAPS_DIR = os.path.join(DATA_DIR, "maps")
+ASSETS_DIR = os.path.join(DATA_DIR, "assets")
+MODELS_DIR = os.path.join(DATA_DIR, "models")
+SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
+LOG_PATH = os.path.join(DATA_DIR, "air_rhythm.log")
+# Where versions before the data folder kept their files (migrated on first start)
+LEGACY_DIR = ROOT
 
 # ---------------------------------------------------------------- window
 TITLE = "Air Rhythm"

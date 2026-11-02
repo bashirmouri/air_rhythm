@@ -10,10 +10,33 @@ pip install -r requirements.txt   # installs pygame-ce, a drop-in pygame fork wi
 python main.py              # webcam (hand) mode
 python main.py --mouse      # mouse + left click / Z / X, no camera needed
 python main.py --autoplay   # watch a perfect play
+python main.py --portable   # keep settings and game files next to the game
 ```
 
 On first launch the game generates its song, beatmaps and menu music (a few seconds) and downloads
 the MediaPipe hand model (~8 MB).
+
+## Where files are saved
+
+Settings, the generated songs and beatmaps, the hand model and the log live in a per-user folder,
+not next to the game:
+
+| OS | Folder |
+|---|---|
+| Windows | `%LOCALAPPDATA%\AirRhythm` |
+| macOS | `~/Library/Application Support/AirRhythm` |
+| Linux | `~/.local/share/air-rhythm` (or `$XDG_DATA_HOME/air-rhythm`) |
+
+**Portable mode** keeps everything next to the game instead: start with `--portable`, or put an
+empty file named `portable.txt` in the game folder. `AIR_RHYTHM_DATA_DIR` overrides the folder.
+Settings and the hand model from older versions (saved next to the game) are copied over on first start.
+
+Damaged files fix themselves: a half-written song or beatmap is regenerated on the next start,
+and a broken hand model is downloaded again.
+
+**Problems?** The log `air_rhythm.log` in that folder records what happened. If the game hits an
+unexpected error it shows where the log is (press **L** in the error window to open the folder).
+Please attach it when you report a bug.
 
 **First thing to do:** open *Calibrate offset* from the menu. Webcams add 50-150 ms of delay;
 calibration measures it and the game subtracts it from every hit.
@@ -38,6 +61,7 @@ calibration measures it and the game subtracts it from every hit.
 | File | What it does |
 |---|---|
 | `main.py` | Starts pygame, holds the current screen, runs the main loop, draws the cursor |
+| `diagnostics.py` | Log file, startup info for bug reports, the error window shown instead of a crash |
 | `hand_tracker.py` | Background thread: webcam, MediaPipe, pinch detection, One Euro smoothing |
 | `inputs.py` | Same interface for hand and mouse, so the game doesn't care which one you use |
 | `clock.py` | Song clock: timing comes from a high-precision clock, never from frame counts |
@@ -47,7 +71,7 @@ calibration measures it and the game subtracts it from every hit.
 | `beatmap.py` | Beatmap format + osu! difficulty formulas (AR, CS, OD) |
 | `audio_gen.py` | Synthesizes the song, the menu music, the metronome and the hitsound with NumPy |
 | `map_gen.py` | Places circles on the song's beats and melody, one beatmap per level (`LEVELS`) |
-| `config.py` | All tuning values (pinch thresholds, smoothing, active zone...) |
+| `config.py` | All tuning values (pinch thresholds, smoothing, active zone...) and the data folder location |
 
 ## Tuning tips
 
