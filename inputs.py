@@ -66,6 +66,7 @@ class HandInput:
         self.tracker = HandTracker()
         self.tracker.start()
         self._presses = []
+        self._preview, self._preview_id = None, -1
 
     @staticmethod
     def _to_osu(uv):
@@ -83,9 +84,7 @@ class HandInput:
                 self._presses.append((t, self._to_osu(uv)))
 
     def cursor(self):
-        with self.tracker.lock:
-            uv, visible = self.tracker.cursor, self.tracker.visible
-        return self._to_osu(uv) if visible else None
+        return self._to_osu(self.tracker.display_cursor())
 
     def is_down(self):
         return self.tracker.pinched
@@ -106,11 +105,14 @@ class HandInput:
 
     def preview_surface(self):
         with self.tracker.lock:
-            img = self.tracker.preview
+            img, img_id = self.tracker.preview, self.tracker.preview_id
         if img is None:
             return None
-        h, w = img.shape[:2]
-        return pygame.image.frombuffer(img.tobytes(), (w, h), "RGB")
+        if img_id != self._preview_id:      # convert only when the camera sent a new image
+            h, w = img.shape[:2]
+            self._preview = pygame.image.frombuffer(img.tobytes(), (w, h), "RGB")
+            self._preview_id = img_id
+        return self._preview
 
     def close(self):
         self.tracker.stop()

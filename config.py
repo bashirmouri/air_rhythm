@@ -37,6 +37,10 @@ HAND_LOST_GRACE_S = 0.12    # hand can vanish this long before we count it as re
 FILTER_MIN_CUTOFF = 1.5
 FILTER_BETA = 8.0
 FILTER_D_CUTOFF = 1.0
+# The drawn cursor replays camera positions this many ms late, gliding between them, so it
+# moves evenly even though webcams deliver frames unevenly. Higher = smoother but trails
+# your hand more; 0 = raw (choppy). Hits always use the exact, undelayed position.
+CURSOR_SMOOTHING_MS = 60
 
 # ---------------------------------------------------------------- gameplay
 LEAD_IN_MS = 2000

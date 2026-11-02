@@ -10,6 +10,7 @@ Output (read by the game):
 The capture time is taken right when the frame arrives, so a hit is judged at
 the moment the pinch was *seen*, not when processing finished.
 """
+import collections
 import os
 import queue
 import threading
@@ -116,9 +117,11 @@ class HandTracker:
         self.lock = threading.Lock()
         self.events = queue.Queue()
         self.cursor = None
+        self._samples = collections.deque(maxlen=12)  # (arrival time, cursor) of recent frames
         self.visible = False
         self.pinched = False
         self.preview = None      # small RGB image for the in-game camera view
+        self.preview_id = 0      # goes up by one with every new preview image
         self.ready = False
         self.error = None
         self.fps = 0.0
@@ -127,6 +130,39 @@ class HandTracker:
 
     def start(self):
         self._thread.start()
+
+    def display_cursor(self, now=None):
+        """Cursor position for drawing a frame at time `now`.
+        Webcams deliver frames unevenly (often 12-90 ms apart instead of a steady 33),
+        and the screen shows 60+ frames per second, so a cursor that jumps to each new
+        camera position looks choppy. Instead the recent positions are played back
+        CURSOR_SMOOTHING_MS late, gliding between them: the delay hides the uneven
+        arrivals, so the cursor moves at an even speed. Hits still use the exact
+        position from the moment the frame was captured."""
+        if now is None:
+            now = time.perf_counter()
+        with self.lock:
+            if not self.visible:
+                return None
+            samples = list(self._samples)
+        if not samples:
+            return self.cursor
+        delay = config.CURSOR_SMOOTHING_MS / 1000
+        if delay <= 0:
+            return samples[-1][1]
+        rt = now - delay
+        i = len(samples) - 1
+        while i >= 0 and samples[i][0] > rt:     # newest position that is old enough to show
+            i -= 1
+        if i < 0:                               # hand just appeared: start at its first position
+            return samples[0][1]
+        if i == len(samples) - 1:               # camera is late: hold the last position
+            return samples[-1][1]
+        (ta, (ua, va)), (tb, (ub, vb)) = samples[i], samples[i + 1]
+        if tb - ta > 0.15:                      # long gap (hand was briefly lost): don't slide across
+            return ub, vb
+        f = (rt - ta) / (tb - ta)
+        return ua + (ub - ua) * f, va + (vb - va) * f
 
     def stop(self):
         self._stop.set()
@@ -187,6 +223,7 @@ class HandTracker:
                     event = pinch.update(pinch_ratio(landmarks, w, h))
                     with self.lock:
                         self.cursor, self.visible, self.pinched = (u, v), True, pinch.pinched
+                        self._samples.append((time.perf_counter(), (u, v)))
                     if event:
                         self.events.put((event, t, (u, v)))
                 elif last_seen is None or t - last_seen > config.HAND_LOST_GRACE_S:
@@ -197,11 +234,13 @@ class HandTracker:
                     fv.reset()
                     with self.lock:
                         self.visible, self.pinched = False, False
+                        self._samples.clear()
 
                 preview = self._make_preview(rgb, landmarks, pinch.pinched)
                 frame_times = [ft for ft in frame_times if t - ft < 1.0] + [t]
                 with self.lock:
                     self.preview = preview
+                    self.preview_id += 1
                     self.fps = len(frame_times)
                     self.ready = True
         finally:

@@ -167,7 +167,7 @@ class MenuScreen(_ButtonScreen):
             msg, dot = status, ui.WARN
         else:
             msg, dot = "Hand tracking ready", ui.OK
-        img = ui.sans(15, "semibold").render(msg, True, ui.WHITE)
+        img = ui.render(msg, 15, ui.WHITE, "semibold")
         pill = pygame.Rect(0, 0, img.get_width() + 46, 34)
         pill.topright = topright
         ui.panel(surf, pill, (255, 255, 255, 14), (255, 255, 255, 36), radius=17)

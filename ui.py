@@ -51,20 +51,36 @@ def text(surf, s, size, color, pos, anchor="center", alpha=255):
     return rect
 
 
+_rendered = {}
+
+
+def render(s, size, color, weight="regular", spacing=0):
+    """Rendered text, cached: the menu draws the same strings every frame."""
+    key = (s, size, color, weight, spacing)
+    img = _rendered.get(key)
+    if img is None:
+        if len(_rendered) > 512:
+            _rendered.clear()
+        f = sans(size, weight)
+        if spacing:
+            glyphs = [f.render(ch, True, color) for ch in s]
+            img = pygame.Surface((sum(g.get_width() for g in glyphs) + spacing * (len(s) - 1),
+                                  f.get_height()), pygame.SRCALPHA)
+            x = 0
+            for g in glyphs:
+                img.blit(g, (x, 0))
+                x += g.get_width() + spacing
+        else:
+            img = f.render(s, True, color)
+        _rendered[key] = img
+    return img
+
+
 def label(surf, s, size, color, pos, anchor="center", weight="regular", alpha=255, spacing=0):
     """Like text(), with the UI font. `spacing` adds letter spacing in pixels."""
-    f = sans(size, weight)
-    if spacing:
-        glyphs = [f.render(ch, True, color) for ch in s]
-        img = pygame.Surface((sum(g.get_width() for g in glyphs) + spacing * (len(s) - 1),
-                              f.get_height()), pygame.SRCALPHA)
-        x = 0
-        for g in glyphs:
-            img.blit(g, (x, 0))
-            x += g.get_width() + spacing
-    else:
-        img = f.render(s, True, color)
+    img = render(s, size, color, weight, spacing)
     if alpha < 255:
+        img = img.copy()                    # don't change the cached image
         img.set_alpha(alpha)
     rect = img.get_rect(**{anchor: pos})
     surf.blit(img, rect)
@@ -104,12 +120,21 @@ class Button:
 
 
 # ====================================================================== main menu widgets
+_panels = {}
+
+
 def panel(surf, rect, fill, border=None, radius=14, width=1):
-    """Rounded rectangle with see-through fill / border colors (RGBA)."""
-    layer = pygame.Surface(rect.size, pygame.SRCALPHA)
-    pygame.draw.rect(layer, fill, layer.get_rect(), border_radius=radius)
-    if border:
-        pygame.draw.rect(layer, border, layer.get_rect(), width, border_radius=radius)
+    """Rounded rectangle with see-through fill / border colors (RGBA). Cached per look."""
+    key = (rect.size, fill, border, radius, width)
+    layer = _panels.get(key)
+    if layer is None:
+        if len(_panels) > 512:
+            _panels.clear()
+        layer = pygame.Surface(rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(layer, fill, layer.get_rect(), border_radius=radius)
+        if border:
+            pygame.draw.rect(layer, border, layer.get_rect(), width, border_radius=radius)
+        _panels[key] = layer
     surf.blit(layer, rect)
 
 
@@ -147,7 +172,7 @@ def make_glow(radius, color):
 
 def keycap(surf, key, pos):
     """A small keyboard key, e.g. [Enter]. Returns its right edge."""
-    img = sans(14, "semibold").render(key, True, DIM)
+    img = render(key, 14, DIM, "semibold")
     rect = pygame.Rect(0, 0, max(img.get_width() + 14, 26), 24)
     rect.midleft = pos
     panel(surf, rect, (255, 255, 255, 14), (255, 255, 255, 40), radius=6)
@@ -182,9 +207,9 @@ class PlayCard(_Animated):
     def draw(self, surf, hovered):
         h = self.ease(hovered)
         if h > 0.01:
-            glow = self._glow.copy()
-            glow.set_alpha(int(255 * h))
-            surf.blit(glow, glow.get_rect(center=self.rect.center), special_flags=pygame.BLEND_ADD)
+            self._glow.set_alpha(int(255 * h))
+            surf.blit(self._glow, self._glow.get_rect(center=self.rect.center),
+                      special_flags=pygame.BLEND_ADD)
         rect = self.rect.move(0, -3 * h)
         surf.blit(self._card, rect)
         if h > 0.01:                        # brighten on hover
@@ -239,8 +264,7 @@ class OptionRow(_Animated):
             disc(surf, WHITE, (knob_x, y), 9)
         elif isinstance(value, tuple):      # segmented control
             options, selected = value
-            imgs = [sans(16, "semibold").render(o, True, WHITE if o == selected else MUTED)
-                    for o in options]
+            imgs = [render(o, 16, WHITE if o == selected else MUTED, "semibold") for o in options]
             widths = [img.get_width() + 24 for img in imgs]
             outer = pygame.Rect(0, 0, sum(widths) + 6, 30)
             outer.midright = (x, y)

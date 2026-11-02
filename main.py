@@ -50,7 +50,13 @@ class App:
         from screens import MenuScreen
         self.screen = None
         self.goto(MenuScreen(self))
+        self.screen.draw(self.surface)      # warm-up: loads fonts and glyphs before the first shown frame
         self.running = True
+        # With vsync, flip() already waits for the monitor, so the frame limiter must not sleep too:
+        # it fights vsync (120 fps on a 144 Hz screen = uneven frames) and its sleep sometimes
+        # overshoots by a whole frame. Without vsync we cap at TARGET_FPS.
+        self.vsync = pygame.display.is_vsync()
+        self.refresh = max(pygame.display.get_desktop_refresh_rates() or [60])
 
     # ------------------------------------------------------------- helpers
     def set_input_mode(self, mode):
@@ -138,7 +144,12 @@ class App:
                 self.draw_camera_preview(self.surface)
                 self.draw_cursor(self.surface)
                 pygame.display.flip()
-                clock.tick(config.TARGET_FPS)
+                if self.vsync:
+                    clock.tick()                     # just measures; flip() did the waiting
+                    if clock.get_fps() > 1.5 * self.refresh:
+                        self.vsync = False           # the driver ignores vsync: cap it ourselves
+                else:
+                    clock.tick(config.TARGET_FPS)
         finally:
             self.input.close()
             settings_mod.save(self.settings)

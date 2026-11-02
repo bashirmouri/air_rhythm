@@ -52,6 +52,8 @@ calibration measures it and the game subtracts it from every hit.
 
 - **Pinch fires too easily / not at all:** change `PINCH_CLOSE` and `PINCH_OPEN` in `config.py`.
 - **Cursor shaky:** lower `FILTER_MIN_CUTOFF`. **Cursor lags on jumps:** raise `FILTER_BETA`.
+  **Cursor choppy:** raise `CURSOR_SMOOTHING_MS` (smoother, but trails your hand more).
+  **Cursor feels late:** lower it (`0` = raw camera positions).
 - **Too much arm movement:** shrink `ACTIVE_ZONE` (the white box in the camera view).
 - **Lighting:** a bright, even light on your hand makes tracking far more stable.
 

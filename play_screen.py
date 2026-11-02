@@ -48,6 +48,8 @@ class PlayScreen:
         self.game = Gameplay(self.bm, no_fail=app.settings["no_fail"] or autoplay)
         self.r_px = self.bm.radius * app.playfield.scale
         self._sprites = {}
+        for o in self.bm.objects:            # build every circle image now, not mid-song (no hitches)
+            self.sprite(o.color, o.number)
         self.overlay = pygame.Surface(app.surface.get_size(), pygame.SRCALPHA)
         self.anims = []                                   # (object index, judgment, start ms)
         self.recent_errors = collections.deque(maxlen=24)
