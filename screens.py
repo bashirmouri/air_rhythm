@@ -63,17 +63,45 @@ class _ButtonScreen:
 
 
 # ======================================================================
+MENU_LEFT, MENU_WIDTH = 96, 460
+_menu_bg_cache = {}
+
+
+def _menu_background(w, h):
+    """Dark gradient plus two glow sprites (pink top-right, violet bottom-left). Built once."""
+    if (w, h) not in _menu_bg_cache:
+        bg = pygame.Surface((w, h))
+        for y in range(h):
+            pygame.draw.line(bg, ui.lerp_color((16, 13, 30), (6, 6, 12), y / h), (0, y), (w, y))
+        glows = [(ui.make_glow(420, (70, 22, 55)), (w - 220, 120), 0.0),
+                 (ui.make_glow(380, (36, 24, 80)), (180, h - 80), 2.0)]
+        _menu_bg_cache[(w, h)] = bg, glows
+    return _menu_bg_cache[(w, h)]
+
+
 class MenuScreen(_ButtonScreen):
     def __init__(self, app):
         self.app = app
         self._load_map_info()
         W, H = app.surface.get_size()
-        cx, size = W // 2, (420, 54)
-        actions = [(self.play, ""), (self.next_level, ""), (self.calibrate, "Calibrate offset"),
-                   (self.toggle_input, ""), (self.toggle_no_fail, ""), (app.quit, "Quit")]
-        self.buttons = [ui.Button(label, (cx, 318 + 64 * k), size, action)
-                        for k, (action, label) in enumerate(actions)]
-        self._t = 0
+        s = app.settings
+        # left column: title, the big Play card, then one row per setting
+        x, w = MENU_LEFT, MENU_WIDTH
+        self.buttons = [
+            ui.PlayCard((x, 248, w, 100), self.play,
+                        lambda: f"{self.map_title}  ·  {self.map_version}"),
+            ui.OptionRow((x, 366, w, 52), "Level", self.next_level, lambda: (LEVELS, s["level"])),
+            ui.OptionRow((x, 426, w, 52), "Input", self.toggle_input,
+                         lambda: (["Hand", "Mouse"], "Hand" if app.input.kind == "hand" else "Mouse")),
+            ui.OptionRow((x, 486, w, 52), "No-fail", self.toggle_no_fail, lambda: s["no_fail"]),
+            ui.OptionRow((x, 546, w, 52), "Calibrate offset", self.calibrate,
+                         lambda: f"{s['input_offset_ms']:+.0f} ms"),
+            ui.OptionRow((x, 606, w, 52), "Quit", app.quit, danger=True),
+        ]
+        # right side: a hit circle that keeps getting hit, as a preview of the game
+        self.demo = ui.HitCircleDemo((920, 330), 92, COMBO_COLORS)
+        self.background, self.glows = _menu_background(W, H)
+        self.t0 = time.perf_counter()
 
     def play(self):
         self.app.goto(PlayScreen(self.app, self.app.map_path, self.app.autoplay))
@@ -107,29 +135,44 @@ class MenuScreen(_ButtonScreen):
                 keys[e.key]()
 
     def draw(self, surf):
-        s = self.app.settings
-        self.buttons[0].label = f"Play: {self.map_title} [{self.map_version}]"
-        self.buttons[1].label = f"Level: {s['level']}"
-        self.buttons[3].label = f"Input: {'Hand (webcam)' if self.app.input.kind == 'hand' else 'Mouse'}"
-        self.buttons[4].label = f"No-fail: {'on' if s['no_fail'] else 'off'}"
-
-        surf.blit(self.app.background, (0, 0))
         W, H = surf.get_size()
-        self._t += 1
-        # decorative pulsing circles
-        for k, color in enumerate(COMBO_COLORS):
-            r = 70 + 12 * math.sin(self._t / 40 + k * 1.6)
-            x = W // 2 + (k - 1.5) * 220
-            pygame.draw.circle(surf, ui.lerp_color(color, (0, 0, 0), 0.75), (int(x), 150), int(r), 3)
-        ui.text(surf, "AIR RHYTHM", 110, ui.WHITE, (W // 2, 150))
-        ui.text(surf, "click the beat with your hand", 34, ui.DIM, (W // 2, 225))
+        t = time.perf_counter() - self.t0
+        surf.blit(self.background, (0, 0))
+        # two soft lights drifting slowly behind everything
+        for glow, (gx, gy), phase in self.glows:
+            dx, dy = 40 * math.sin(t * 0.21 + phase), 30 * math.cos(t * 0.17 + phase)
+            surf.blit(glow, glow.get_rect(center=(gx + dx, gy + dy)), special_flags=pygame.BLEND_ADD)
+
+        x = MENU_LEFT
+        ui.label(surf, "WEBCAM RHYTHM GAME", 15, ui.ACCENT, (x + 2, 96), "midleft", "semibold", spacing=3)
+        ui.label(surf, "AIR RHYTHM", 68, ui.WHITE, (x - 3, 148), "midleft", "black")
+        ui.label(surf, "Aim with your hand. Pinch on the beat.", 20, ui.DIM, (x, 204), "midleft")
         self.draw_buttons(surf)
-        ui.text(surf, f"Offset: {s['input_offset_ms']:+.0f} ms     Enter: play   L: level   C: calibrate   "
-                      f"I: input   N: no-fail   V: camera view   F11: fullscreen",
-                22, ui.DIM, (W // 2, H - 22))
+
+        self.demo.draw(surf)
+        self._draw_status(surf, (W - 48, 48))
+
+        kx = x
+        for key, what in (("Enter", "Play"), ("L", "Level"), ("I", "Input"), ("N", "No-fail"),
+                          ("C", "Calibrate"), ("V", "Camera"), ("F11", "Fullscreen"), ("Esc", "Quit")):
+            kx = ui.keycap(surf, key, (kx, H - 30))
+            kx = ui.label(surf, what, 14, ui.MUTED, (kx + 7, H - 30), "midleft").right + 16
+
+    def _draw_status(self, surf, topright):
+        """Pill in the top-right corner: is the camera working?"""
         status = self.app.input.status_text()
-        if status:
-            ui.text(surf, status, 30, (255, 190, 120), (W // 2, 275))
+        if self.app.input.kind == "mouse":
+            msg, dot = "Mouse input", ui.MUTED
+        elif status:
+            msg, dot = status, ui.WARN
+        else:
+            msg, dot = "Hand tracking ready", ui.OK
+        img = ui.sans(15, "semibold").render(msg, True, ui.WHITE)
+        pill = pygame.Rect(0, 0, img.get_width() + 46, 34)
+        pill.topright = topright
+        ui.panel(surf, pill, (255, 255, 255, 14), (255, 255, 255, 36), radius=17)
+        ui.disc(surf, dot, (pill.x + 18, pill.centery), 5)
+        surf.blit(img, img.get_rect(midleft=(pill.x + 32, pill.centery)))
 
 
 # ======================================================================
