@@ -15,6 +15,9 @@ TARGET_FPS = 120
 # ---------------------------------------------------------------- audio
 SAMPLE_RATE = 44100
 AUDIO_BUFFER = 512          # smaller buffer = less audio delay
+MENU_MUSIC_VOLUME = 0.5     # 0..1
+MENU_MUSIC_FADE_IN_MS = 2500
+MENU_MUSIC_FADE_OUT_MS = 900
 
 # ---------------------------------------------------------------- playfield
 # We use osu!'s playfield coordinates (512 x 384) so real osu! maps can be

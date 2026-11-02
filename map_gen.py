@@ -7,11 +7,12 @@ import random
 
 import config
 from audio_gen import (BAR, BEAT, BPM, DROP_MELODY, N_BARS, make_calibration,
-                       make_first_steps, section_of, write_wav)
+                       make_first_steps, make_menu_music, section_of, write_wav)
 
 FIRST_MAP_DIR = os.path.join(config.MAPS_DIR, "first_steps")
 FIRST_MAP_PATH = os.path.join(FIRST_MAP_DIR, "beatmap.json")
 CALIBRATION_AUDIO = os.path.join(config.ASSETS_DIR, "calibration.wav")
+MENU_MUSIC = os.path.join(config.ASSETS_DIR, "menu_music.wav")
 
 DIFFICULTY = {"ar": 5, "cs": 2.5, "od": 2, "hp": 3}   # gentle: webcams add delay
 
@@ -109,7 +110,7 @@ def make_beatmap(level="Normal"):
 
 
 def ensure_assets():
-    """Generate the song, its beatmaps and the calibration track if missing."""
+    """Generate the song, its beatmaps, the calibration track and the menu music if missing."""
     os.makedirs(FIRST_MAP_DIR, exist_ok=True)
     os.makedirs(config.ASSETS_DIR, exist_ok=True)
     audio = os.path.join(FIRST_MAP_DIR, "audio.wav")
@@ -122,6 +123,8 @@ def ensure_assets():
                 json.dump(make_beatmap(level), f, indent=1)
     if not os.path.exists(CALIBRATION_AUDIO):
         write_wav(CALIBRATION_AUDIO, make_calibration())
+    if not os.path.exists(MENU_MUSIC):
+        write_wav(MENU_MUSIC, make_menu_music())
 
 
 if __name__ == "__main__":

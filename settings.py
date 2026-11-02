@@ -9,6 +9,7 @@ DEFAULTS = {
     "level": "Easy",          # "Easy" or "Normal" (see map_gen.LEVELS)
     "no_fail": False,
     "show_camera": True,
+    "menu_music": True,
 }
 
 

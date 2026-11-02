@@ -256,6 +256,118 @@ def make_first_steps():
     return _master(mix.buf, 0.9)
 
 
+# ======================================================================
+# Menu music: a calm loop in the same key and chords as First Steps
+# ======================================================================
+MENU_BPM = 80
+MENU_BEAT = 60.0 / MENU_BPM      # 0.75 s
+MENU_BAR = 4 * MENU_BEAT         # 3 s
+MENU_BARS = 16                   # 48 s loop
+# Am9 - Fmaj7 - Cmaj7 - G6 as (bass root, chord notes)
+MENU_CHORDS = [(45, (57, 60, 64, 67, 71)), (41, (53, 57, 60, 64)),
+               (48, (55, 59, 60, 64)), (43, (55, 59, 62, 64))]
+MENU_BELLS = [[69, 72, 76, 79, 76, 72, 71, 72],      # bell arpeggio, one note per 8th
+              [65, 69, 72, 76, 72, 69, 67, 69],
+              [67, 71, 72, 76, 72, 71, 67, 64],
+              [67, 71, 74, 76, 74, 71, 67, 62]]
+MENU_MELODY = [[(0, 76, 1.5), (1.5, 74, .5), (2, 72, 2)],    # (beat, note, length in beats)
+               [(0, 72, 1.5), (1.5, 69, .5), (2, 67, 2)],
+               [(0, 67, 1), (1, 72, 1), (2, 76, 2)],
+               [(0, 74, 3), (3, 71, 1)]]
+
+
+def soft_pad(midis, dur):
+    """Warm pad: detuned sines with a slow swell and long release (no buzz)."""
+    release = 1.6
+    t = _t(dur + release)
+    sig = np.zeros_like(t)
+    for m in midis:
+        f = midi_to_hz(m)
+        sig += (np.sin(2 * np.pi * f * 1.002 * t) + np.sin(2 * np.pi * f * 0.998 * t)
+                + 0.15 * np.sin(2 * np.pi * 2 * f * t))
+    tremolo = 1 + 0.08 * np.sin(2 * np.pi * 0.35 * t)
+    env = np.minimum(1, t / 1.0) * np.clip((dur + release - t) / release, 0, 1)
+    return sig * env * tremolo / (2 * len(midis))
+
+
+def sub_bass(midi, dur):
+    release = 0.8
+    t = _t(dur + release)
+    env = np.minimum(1, t / 0.08) * np.clip((dur + release - t) / release, 0, 1)
+    return np.sin(2 * np.pi * midi_to_hz(midi) * t) * env
+
+
+def bell(midi, dur=1.6):
+    """Soft mallet/kalimba tone: sine plus a quiet bright partial that dies fast."""
+    t = _t(dur)
+    f = midi_to_hz(midi)
+    sig = np.sin(2 * np.pi * f * t) + 0.25 * np.sin(2 * np.pi * 3 * f * t) * np.exp(-t / 0.08)
+    return sig * np.minimum(1, t / 0.004) * np.exp(-t / 0.45)
+
+
+def soft_lead(midi, dur):
+    release = 0.5
+    t = _t(dur + release)
+    vibrato = 1 + 0.003 * np.sin(2 * np.pi * 5 * t) * np.minimum(1, t / 0.4)
+    phase = 2 * np.pi * np.cumsum(midi_to_hz(midi) * vibrato) / SR
+    sig = np.sin(phase) + 0.2 * np.sin(2 * phase) + 0.08 * np.sin(3 * phase)
+    env = np.minimum(1, t / 0.09) * np.clip((dur + release - t) / release, 0, 1)
+    return sig * env
+
+
+def _echo(buf, delay_s, feedback, repeats):
+    """Repeating echo with alternating left/right repeats (cheap, spacious 'reverb')."""
+    out = buf.copy()
+    d = int(delay_s * SR)
+    for k in range(1, repeats + 1):
+        if k * d >= len(buf):
+            break
+        g = feedback ** k
+        src = buf[:len(buf) - k * d]
+        if k % 2:                                   # ping-pong: swap channels on odd repeats
+            src = src[:, ::-1]
+        out[k * d:] += src * g
+    return out
+
+
+def make_menu_music():
+    """A smooth 48 s loop for the main menu. The tail is wrapped onto the start,
+    so it loops without a gap or click. Returns float stereo in [-1, 1]."""
+    loop = MENU_BARS * MENU_BAR
+    tail = 6.0
+    dry, wet = _Mix(loop + tail), _Mix(loop + tail)  # wet = sent through the echo
+    K, BRUSH = kick(), hat(open_=True)
+
+    for bar in range(MENU_BARS):
+        t0 = bar * MENU_BAR
+        ci = bar % 4
+        root, chord = MENU_CHORDS[ci]
+        second_half = bar >= 8
+
+        dry.add(t0, soft_pad(chord, MENU_BAR), .55)
+        dry.add(t0, sub_bass(root, MENU_BAR * .9), .32)
+        dry.add(t0 + 2.5 * MENU_BEAT, sub_bass(root + 7, MENU_BEAT * 1.2), .14)   # passing fifth
+
+        if bar >= 2:                                 # bells come in after the pad swells up
+            g = .16 if bar < 4 else .2
+            for e, n in enumerate(MENU_BELLS[ci]):
+                if bar < 4 and e % 2:                # sparser at first
+                    continue
+                wet.add(t0 + e * MENU_BEAT / 2, bell(n), g, pan=.4 if e % 2 else -.4)
+
+        if second_half:
+            for beat, n, d in MENU_MELODY[ci]:
+                wet.add(t0 + beat * MENU_BEAT, soft_lead(n, d * MENU_BEAT), .15, pan=.1)
+            for beat in (0, 2.5):                    # soft, laid-back kick
+                dry.add(t0 + beat * MENU_BEAT, K, .22)
+            for beat in (1, 3):                      # brushed backbeat
+                dry.add(t0 + beat * MENU_BEAT, BRUSH, .07, pan=-.3)
+
+    buf = dry.buf + _echo(wet.buf, MENU_BEAT * .75, .38, 6)
+    buf[:int(tail * SR)] += buf[int(loop * SR):int(loop * SR) + int(tail * SR)]   # wrap the tail
+    return _master(buf[:int(loop * SR)], 0.6)
+
+
 def make_calibration():
     n_beats = CALIB_COUNT_IN + CALIB_TAPS
     mix = _Mix(CALIB_FIRST_MS / 1000 + n_beats * CALIB_BEAT_MS / 1000 + 1.0)

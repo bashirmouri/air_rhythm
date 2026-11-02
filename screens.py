@@ -80,6 +80,8 @@ def _menu_background(w, h):
 
 
 class MenuScreen(_ButtonScreen):
+    menu_music = True                       # App fades the menu music in while this screen is shown
+
     def __init__(self, app):
         self.app = app
         self._load_map_info()
@@ -118,6 +120,10 @@ class MenuScreen(_ButtonScreen):
     def calibrate(self):
         self.app.goto(CalibrationScreen(self.app))
 
+    def toggle_music(self):
+        self.app.settings["menu_music"] = not self.app.settings["menu_music"]
+        self.app.update_menu_music()
+
     def toggle_input(self):
         self.app.set_input_mode("mouse" if self.app.input.kind == "hand" else "hand")
 
@@ -126,7 +132,7 @@ class MenuScreen(_ButtonScreen):
 
     def handle(self, events):
         keys = {pygame.K_RETURN: self.play, pygame.K_SPACE: self.play, pygame.K_c: self.calibrate,
-                pygame.K_l: self.next_level,
+                pygame.K_l: self.next_level, pygame.K_m: self.toggle_music,
                 pygame.K_i: self.toggle_input, pygame.K_n: self.toggle_no_fail,
                 pygame.K_ESCAPE: self.app.quit, pygame.K_q: self.app.quit}
         self.handle_mouse(events)
@@ -154,7 +160,8 @@ class MenuScreen(_ButtonScreen):
 
         kx = x
         for key, what in (("Enter", "Play"), ("L", "Level"), ("I", "Input"), ("N", "No-fail"),
-                          ("C", "Calibrate"), ("V", "Camera"), ("F11", "Fullscreen"), ("Esc", "Quit")):
+                          ("C", "Calibrate"), ("M", "Music"), ("V", "Camera"), ("F11", "Fullscreen"),
+                          ("Esc", "Quit")):
             kx = ui.keycap(surf, key, (kx, H - 30))
             kx = ui.label(surf, what, 14, ui.MUTED, (kx + 7, H - 30), "midleft").right + 16
 

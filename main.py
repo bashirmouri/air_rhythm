@@ -15,7 +15,7 @@ import settings as settings_mod
 import ui
 from audio_gen import make_hitsound
 from inputs import HandInput, MouseInput
-from map_gen import LEVEL_PATHS, ensure_assets
+from map_gen import LEVEL_PATHS, MENU_MUSIC, ensure_assets
 from playfield import Playfield
 
 
@@ -43,6 +43,13 @@ class App:
         self.background = ui.make_background(config.WINDOW_W, config.WINDOW_H)
         self.hitsound = pygame.sndarray.make_sound(make_hitsound())
         self.hitsound.set_volume(0.5)
+        # Menu music gets its own reserved channel, so hitsounds never cut it off and it can
+        # fade out on its own while the song (pygame.mixer.music) loads and starts.
+        pygame.mixer.set_reserved(1)
+        self.music_channel = pygame.mixer.Channel(0)
+        self.menu_music = pygame.mixer.Sound(MENU_MUSIC)
+        self.menu_music.set_volume(config.MENU_MUSIC_VOLUME)
+        self._menu_music_on = False
         self.trail = collections.deque(maxlen=14)
         self.input = None
         self.set_input_mode(self.settings["input_mode"])
@@ -73,6 +80,17 @@ class App:
         if self.input:
             self.input.take_presses()        # don't carry clicks into the next screen
         self.screen = screen
+        self.update_menu_music()
+
+    def update_menu_music(self):
+        """Fade the menu music in on screens that want it (the menu), out everywhere else."""
+        want = getattr(self.screen, "menu_music", False) and self.settings["menu_music"]
+        if want and not self._menu_music_on:
+            self.music_channel.stop()        # in case it is still fading out
+            self.music_channel.play(self.menu_music, loops=-1, fade_ms=config.MENU_MUSIC_FADE_IN_MS)
+        elif not want and self._menu_music_on:
+            self.music_channel.fadeout(config.MENU_MUSIC_FADE_OUT_MS)
+        self._menu_music_on = want
 
     def quit(self):
         self.running = False

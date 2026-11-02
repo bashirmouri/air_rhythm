@@ -12,7 +12,7 @@ python main.py --mouse      # mouse + left click / Z / X, no camera needed
 python main.py --autoplay   # watch a perfect play
 ```
 
-On first launch the game generates its song and beatmap (a few seconds) and downloads
+On first launch the game generates its song, beatmaps and menu music (a few seconds) and downloads
 the MediaPipe hand model (~8 MB).
 
 **First thing to do:** open *Calibrate offset* from the menu. Webcams add 50-150 ms of delay;
@@ -28,6 +28,7 @@ calibration measures it and the game subtracts it from every hit.
 | C | Calibrate |
 | I | Switch hand / mouse input |
 | N | No-fail on/off |
+| M | Menu music on/off |
 | V | Show/hide camera view |
 | F11 | Fullscreen |
 | Esc | Back / quit |
@@ -44,7 +45,7 @@ calibration measures it and the game subtracts it from every hit.
 | `play_screen.py` | Draws circles, approach circles, animations, HUD and the timing meter |
 | `screens.py` | Menu, results and calibration screens |
 | `beatmap.py` | Beatmap format + osu! difficulty formulas (AR, CS, OD) |
-| `audio_gen.py` | Synthesizes the song, the metronome and the hitsound with NumPy |
+| `audio_gen.py` | Synthesizes the song, the menu music, the metronome and the hitsound with NumPy |
 | `map_gen.py` | Places circles on the song's beats and melody, one beatmap per level (`LEVELS`) |
 | `config.py` | All tuning values (pinch thresholds, smoothing, active zone...) |
 
