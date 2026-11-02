@@ -7,6 +7,7 @@ import time
 import pygame
 
 import ui
+from version import __version__
 from audio_gen import CALIB_BEAT_MS, CALIB_COUNT_IN, CALIB_FIRST_MS, CALIB_TAPS
 from beatmap import load_beatmap
 from clock import SongClock
@@ -158,6 +159,7 @@ class MenuScreen(_ButtonScreen):
 
         self.demo.draw(surf)
         self._draw_status(surf, (W - 48, 48))
+        ui.label(surf, f"v{__version__}", 13, ui.MUTED, (W - 50, 98), "topright")
 
         kx = x
         for key, what in (("Enter", "Play"), ("L", "Level"), ("I", "Input"), ("N", "No-fail"),

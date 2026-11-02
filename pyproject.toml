@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=77"]   # 77+ understands license = "MIT" (SPDX expression)
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "air-rhythm"
+description = "An osu!-style rhythm game played with your hand in front of a webcam"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "Bashir Mouri" }]
+# numpy 2.5 needs 3.12+; PyInstaller 6.22 supports up to 3.15
+requires-python = ">=3.12,<3.16"
+dynamic = ["version", "dependencies"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Games/Entertainment",
+]
+
+[project.urls]
+Repository = "https://github.com/bashirmouri/air_rhythm"
+
+[project.scripts]
+air-rhythm = "main:main"
+
+[tool.setuptools]
+py-modules = ["audio_gen", "beatmap", "clock", "config", "diagnostics", "gameplay",
+              "hand_tracker", "inputs", "main", "map_gen", "play_screen", "playfield",
+              "screens", "settings", "ui", "version"]
+
+[tool.setuptools.dynamic]
+version = { attr = "version.__version__" }
+dependencies = { file = ["requirements.txt"] }

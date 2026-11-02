@@ -9,6 +9,7 @@ import sys
 import textwrap
 
 import config
+from version import __version__
 
 log = logging.getLogger("air_rhythm")
 
@@ -39,8 +40,9 @@ def log_startup_info():
         except Exception:                   # a broken install must not stop the log line
             return "not installed"
     import pygame
-    log.info("Air Rhythm starting | %s %s | Python %s", platform.system(), platform.release(),
-             platform.python_version())
+    log.info("Air Rhythm %s starting%s | %s %s | Python %s", __version__,
+             " (packaged build)" if getattr(sys, "frozen", False) else "",
+             platform.system(), platform.release(), platform.python_version())
     log.info("pygame-ce %s (SDL %s) | mediapipe %s | opencv %s | numpy %s",
              pygame.version.ver, ".".join(map(str, pygame.get_sdl_version())),
              version("mediapipe"), version("cv2"), version("numpy"))
@@ -123,4 +125,4 @@ def crash_message(exc):
         else "The console window shows the details."
     return (f"Air Rhythm hit an unexpected error and had to close.\n\n"
             f"{type(exc).__name__}: {exc}\n\n{where}\n\n"
-            "If you report this problem, please include the log.")
+            f"If you report this problem, please include the log. (Air Rhythm {__version__})")

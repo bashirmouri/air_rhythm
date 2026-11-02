@@ -1,4 +1,6 @@
-pygame-ce>=2.5
-mediapipe>=0.10.14
-opencv-python>=4.8
-numpy>=1.24
+# Exact versions Air Rhythm is tested with (Python 3.12-3.15). Upgrade on purpose, then retest:
+# MediaPipe in particular changes its API between releases.
+pygame-ce==2.5.8               # drop-in pygame fork with wheels for new Python versions
+mediapipe==1.2.0
+opencv-contrib-python==5.0.0.93  # what mediapipe depends on; don't add opencv-python too (same cv2 module)
+numpy==2.5.4
