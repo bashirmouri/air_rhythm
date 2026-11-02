@@ -192,8 +192,15 @@ class App:
     # ------------------------------------------------------------- main loop
     def run(self):
         clock = pygame.time.Clock()
+        # For automated checks of the packaged game (it has no console to stop it from):
+        # AIR_RHYTHM_QUIT_AFTER_S=8 closes it normally after 8 seconds.
+        quit_after = float(os.environ.get("AIR_RHYTHM_QUIT_AFTER_S") or 0)
+        started = time.perf_counter()
         try:
             while self.running:
+                if quit_after and time.perf_counter() - started > quit_after:
+                    log.info("Closing after %.0f s (AIR_RHYTHM_QUIT_AFTER_S)", quit_after)
+                    self.running = False
                 events = pygame.event.get()
                 for e in events:
                     if e.type == pygame.QUIT:

@@ -1,0 +1,77 @@
+# Builds the Windows release when a version tag is pushed, and creates a DRAFT GitHub
+# Release with the zip attached. Nothing is public until you click "Publish release".
+#
+#   1. bump version.py, move "Unreleased" in CHANGELOG.md to "## [0.2.0] - <date>", commit
+#   2. git tag v0.2.0 && git push origin main v0.2.0
+#   3. wait ~15 min, open Releases, check the draft, click Publish
+#
+# "Run workflow" in the Actions tab does a test run: same build and checks, but the zip is
+# only kept as a downloadable artifact (no release is created).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write             # needed to create the release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.15"     # the version requirements-lock.txt was made with
+
+      - name: Install the exact locked packages
+        run: python -m pip install -r requirements-lock.txt
+
+      - name: Check the tag matches version.py
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          v=$(python -c "import version; print(version.__version__)")
+          if [ "$GITHUB_REF_NAME" != "v$v" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match version.py ($v). Fix one of them."
+            exit 1
+          fi
+
+      - name: Check CHANGELOG.md has a section for this version
+        shell: bash
+        run: python -c "import sys; sys.path.insert(0, 'tools'); import release_notes, version; release_notes.changelog_section(version.__version__)"
+
+      - name: Run the tests
+        run: python -m pytest
+
+      - name: Build
+        run: python tools/build.py
+
+      - name: Start the built game and check it works
+        run: python tools/smoke_test_build.py
+
+      - name: Write the release notes
+        shell: bash
+        run: python tools/release_notes.py dist/AirRhythm-*-windows-x64.zip > dist/release_notes.md
+
+      - name: Keep the zip and notes as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirRhythm-windows
+          path: |
+            dist/AirRhythm-*-windows-x64.zip
+            dist/release_notes.md
+          retention-days: 30
+
+      - name: Create the draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/AirRhythm-*-windows-x64.zip
+          --draft --title "Air Rhythm ${GITHUB_REF_NAME#v}" --notes-file dist/release_notes.md

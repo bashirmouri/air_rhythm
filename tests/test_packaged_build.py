@@ -31,7 +31,9 @@ def packaged_config(tmp_path, portable=False):
     code, out = run_game(fake_frozen + SHOW_CONFIG, tmp_path / "unused", env={
         "AIR_RHYTHM_DATA_DIR": "",                     # use the real default location logic
         "MPLCONFIGDIR": str(tmp_path / "pyinstaller_temp"),   # what PyInstaller's hook sets
-        "LOCALAPPDATA": str(tmp_path / "localappdata"), "XDG_DATA_HOME": str(tmp_path / "xdg")})
+        # the per-user folder is under these on Windows / Linux / macOS (~ = HOME)
+        "LOCALAPPDATA": str(tmp_path / "localappdata"), "XDG_DATA_HOME": str(tmp_path / "xdg"),
+        "HOME": str(tmp_path / "home")})
     assert code == 0, out
     return app, json.loads(next(l for l in out if l.startswith("CONFIG "))[7:])
 

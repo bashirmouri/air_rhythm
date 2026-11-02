@@ -46,21 +46,35 @@ python -m pytest            # about a minute; no camera, window, sound or intern
 | `tests/test_startup.py` | Whole game: first start, no sound device, broken map, crash window, offline |
 | `tests/test_smoke.py` | Every screen, and autoplay getting a perfect score on both levels |
 
-## Build the Windows release
+## Release a new version
+
+GitHub builds and tests every release on a fresh Windows machine
+(`.github/workflows/release.yml`):
+
+1. Set the new version in `version.py`, and in `CHANGELOG.md` rename `## [Unreleased]` to
+   `## [0.2.0] - <date>` (then add an empty `## [Unreleased]` above it). Commit.
+2. Tag and push: `git tag v0.2.0` then `git push origin main v0.2.0`.
+3. Follow it in the repo's **Actions** tab (~15 min). It checks that the tag matches `version.py`
+   and that the changelog has a section for it, runs the tests, builds the game, starts the built
+   game to check it works, and creates a **draft** release with the zip and release notes.
+4. Open **Releases**, check the draft, and click **Publish release**.
+
+Nothing is public until step 4. The tests also run on every push
+(`.github/workflows/tests.yml`: Windows, Linux and macOS, Python 3.12–3.15).
+
+## Build the Windows game locally
 
 ```bash
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python tools\build.py
+.venv\Scripts\python tools\build.py              # dist\AirRhythm\AirRhythm.exe and the zip
+.venv\Scripts\python tools\smoke_test_build.py   # starts the built game and checks it works
+.venv\Scripts\python tools\release_notes.py dist\AirRhythm-<version>-windows-x64.zip   # preview the notes
 ```
 
-This makes `dist\AirRhythm\` (with `AirRhythm.exe`) and `dist\AirRhythm-<version>-windows-x64.zip`.
 The build checks that the pinned versions are installed, pre-generates the audio and beatmaps,
 bundles the checksum-verified hand model, and adds every bundled package's license files.
-`requirements-lock.txt` lists the exact set of packages the release was built with.
-
-To release a new version: bump `version.py`, add a section to `CHANGELOG.md`, build, and tag
-the commit (`git tag v0.2.0`).
+`requirements-lock.txt` lists the exact set of packages releases are built with.
 
 ## Where files are saved
 

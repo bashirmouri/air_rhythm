@@ -10,6 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 - Automated test suite (93 tests, `python -m pytest`): game rules, beatmaps, generated maps,
   hand tracking and cursor smoothing, model download, settings, packaged-build paths,
   startup failures and a full autoplay run through every screen.
+- Tests run automatically on every push on Windows, Linux and macOS with Python 3.12-3.15.
+- Releases are built by GitHub from a version tag: tests, build, a check that the built game
+  starts, then a draft release with the zip and notes taken from this changelog.
 
 ## [0.1.0] - 2026-11-02
 
