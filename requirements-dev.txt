@@ -1,4 +1,5 @@
-# Everything needed to build the standalone game (python tools/build.py)
+# Everything needed to run the tests (pytest) and build the standalone game (tools/build.py)
 -r requirements.txt
 pyinstaller==6.22.3
 pillow==13.0.0                # lets PyInstaller turn the PNG icon into a Windows .ico
+pytest==9.2.0

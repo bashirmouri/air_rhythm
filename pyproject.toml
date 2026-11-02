@@ -34,3 +34,6 @@ py-modules = ["audio_gen", "beatmap", "clock", "config", "diagnostics", "gamepla
 [tool.setuptools.dynamic]
 version = { attr = "version.__version__" }
 dependencies = { file = ["requirements.txt"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

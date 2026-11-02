@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Project
+- Automated test suite (93 tests, `python -m pytest`): game rules, beatmaps, generated maps,
+  hand tracking and cursor smoothing, model download, settings, packaged-build paths,
+  startup failures and a full autoplay run through every screen.
+
 ## [0.1.0] - 2026-11-02
 
 First versioned release.

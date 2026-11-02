@@ -28,6 +28,24 @@ python main.py --portable   # keep settings and game files next to the game
 On first launch the game generates its song, beatmaps and menu music (a few seconds) and downloads
 the MediaPipe hand model (~8 MB).
 
+## Run the tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest            # about a minute; no camera, window, sound or internet needed
+```
+
+| File | What it checks |
+|---|---|
+| `tests/test_gameplay.py` | Hit windows, score, combo, accuracy, health, fail/no-fail, grades |
+| `tests/test_beatmap.py` | osu! formulas (AR, CS, OD), combo numbers and colors, loading |
+| `tests/test_map_gen.py` | Easy/Normal maps (deterministic, on the playfield, rhythm and jump limits), damaged files rebuilt |
+| `tests/test_hand_tracker.py` | Pinch detection, filtering, cursor smoothing (with real webcam timing), safe model download |
+| `tests/test_settings.py` | Defaults, corrupt files, migration from older versions |
+| `tests/test_packaged_build.py` | File locations in the packaged build vs. from source |
+| `tests/test_startup.py` | Whole game: first start, no sound device, broken map, crash window, offline |
+| `tests/test_smoke.py` | Every screen, and autoplay getting a perfect score on both levels |
+
 ## Build the Windows release
 
 ```bash
