@@ -23,7 +23,7 @@ def migrate_legacy_files():
     """Older versions saved next to the game. Copy what can't be recreated (settings with
     the calibration offset, and the downloaded hand model) into the data folder once.
     The old files are left where they are."""
-    if os.path.normcase(config.LEGACY_DIR) == os.path.normcase(config.DATA_DIR):
+    if config.LEGACY_DIR is None or os.path.normcase(config.LEGACY_DIR) == os.path.normcase(config.DATA_DIR):
         return
     for name in ("settings.json", os.path.join("models", "hand_landmarker.task")):
         old, new = os.path.join(config.LEGACY_DIR, name), os.path.join(config.DATA_DIR, name)

@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import random
+import shutil
 
 import config
 from audio_gen import (BAR, BEAT, BPM, DROP_MELODY, N_BARS, make_calibration,
@@ -131,10 +132,24 @@ def _write_json(path, data):
     os.replace(tmp, path)
 
 
+def _copy_pregenerated(path, is_valid):
+    """Packaged builds ship ready-made copies of the generated files. Copy one into the
+    data folder (atomically) if it exists and is valid. Returns True if it did."""
+    if not config.PREGENERATED_DIR:
+        return False
+    src = os.path.join(config.PREGENERATED_DIR, os.path.relpath(path, config.DATA_DIR))
+    if not (os.path.exists(src) and is_valid(src)):
+        return False
+    shutil.copyfile(src, path + ".tmp")
+    os.replace(path + ".tmp", path)
+    return True
+
+
 def ensure_assets():
-    """Generate the song, its beatmaps, the calibration track and the menu music if they
-    are missing or damaged (truncated audio, broken JSON). Raises StartupError if the
-    files can't be written."""
+    """Make sure the song, its beatmaps, the calibration track and the menu music exist and
+    aren't damaged (truncated audio, broken JSON). Missing ones are copied from the
+    packaged build if it has them, otherwise generated. Raises StartupError if the files
+    can't be written."""
     audio = os.path.join(FIRST_MAP_DIR, "audio.wav")
     wavs = [(audio, make_first_steps, "the first song"),
             (CALIBRATION_AUDIO, make_calibration, "the calibration track"),
@@ -145,14 +160,16 @@ def ensure_assets():
         for path, make, what in wavs:
             if not wav_is_valid(path):
                 if os.path.exists(path):
-                    log.warning("%s is damaged, generating it again", path)
-                log.info("Generating %s (one-time, a few seconds)...", what)
-                write_wav(path, make())
+                    log.warning("%s is damaged, replacing it", path)
+                if not _copy_pregenerated(path, wav_is_valid):
+                    log.info("Generating %s (one-time, a few seconds)...", what)
+                    write_wav(path, make())
         for level, path in LEVEL_PATHS.items():
             if not _beatmap_is_valid(path):
                 if os.path.exists(path):
-                    log.warning("%s is damaged, generating it again", path)
-                _write_json(path, make_beatmap(level))
+                    log.warning("%s is damaged, replacing it", path)
+                if not _copy_pregenerated(path, _beatmap_is_valid):
+                    _write_json(path, make_beatmap(level))
     except OSError as e:
         raise StartupError(
             f"Air Rhythm couldn't create its game files in\n{config.DATA_DIR}\n\n{e}\n\n"

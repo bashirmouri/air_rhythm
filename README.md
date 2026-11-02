@@ -3,10 +3,22 @@
 An osu!-style rhythm game played with your hand in front of a webcam. Aim with the
 point between your thumb and index finger, and **pinch** to hit circles on the beat.
 
-## Run it
+## Play it (Windows, no Python needed)
+
+1. Download `AirRhythm-<version>-windows-x64.zip` from the
+   [Releases page](https://github.com/bashirmouri/air_rhythm/releases).
+2. Unzip it anywhere and run `AirRhythm\AirRhythm.exe`.
+
+The first start takes a few seconds longer; later starts take about a second.
+Windows may show a SmartScreen warning because the game isn't code-signed: click
+*More info* → *Run anyway*. Everything the game needs is in the zip, so it works offline.
+
+## Run from source
+
+Needs Python 3.12–3.15 (the range where every dependency ships pre-built wheels).
 
 ```bash
-pip install -r requirements.txt   # installs pygame-ce, a drop-in pygame fork with wheels for new Python versions
+pip install -r requirements.txt   # exact, tested versions (see the comments in the file)
 python main.py              # webcam (hand) mode
 python main.py --mouse      # mouse + left click / Z / X, no camera needed
 python main.py --autoplay   # watch a perfect play
@@ -15,6 +27,22 @@ python main.py --portable   # keep settings and game files next to the game
 
 On first launch the game generates its song, beatmaps and menu music (a few seconds) and downloads
 the MediaPipe hand model (~8 MB).
+
+## Build the Windows release
+
+```bash
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python tools\build.py
+```
+
+This makes `dist\AirRhythm\` (with `AirRhythm.exe`) and `dist\AirRhythm-<version>-windows-x64.zip`.
+The build checks that the pinned versions are installed, pre-generates the audio and beatmaps,
+bundles the checksum-verified hand model, and adds every bundled package's license files.
+`requirements-lock.txt` lists the exact set of packages the release was built with.
+
+To release a new version: bump `version.py`, add a section to `CHANGELOG.md`, build, and tag
+the commit (`git tag v0.2.0`).
 
 ## Where files are saved
 
@@ -72,6 +100,9 @@ calibration measures it and the game subtracts it from every hit.
 | `audio_gen.py` | Synthesizes the song, the menu music, the metronome and the hitsound with NumPy |
 | `map_gen.py` | Places circles on the song's beats and melody, one beatmap per level (`LEVELS`) |
 | `config.py` | All tuning values (pinch thresholds, smoothing, active zone...) and the data folder location |
+| `version.py` | The version number (the only place it's written) |
+| `tools/build.py`, `air_rhythm.spec` | Builds the standalone Windows game and its zip |
+| `tools/make_icon.py` | Draws the app icon (`resources/icon.png`, `icon.ico`) |
 
 ## Tuning tips
 

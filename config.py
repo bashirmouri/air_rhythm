@@ -3,6 +3,11 @@ import os
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+# Packaged build (PyInstaller): read-only bundled files live in sys._MEIPASS, and the
+# folder the player sees (with AirRhythm.exe) is next to sys.executable.
+FROZEN = getattr(sys, "frozen", False)
+BUNDLE_DIR = getattr(sys, "_MEIPASS", ROOT)
+APP_DIR = os.path.dirname(sys.executable) if FROZEN else ROOT
 
 
 def user_data_dir():
@@ -21,15 +26,30 @@ def user_data_dir():
 # Portable mode keeps everything next to the game (USB stick, or running from source):
 # start with --portable, or put a file named portable.txt in the game folder.
 # AIR_RHYTHM_DATA_DIR overrides the location (used by tests).
-PORTABLE = "--portable" in sys.argv or os.path.exists(os.path.join(ROOT, "portable.txt"))
-DATA_DIR = os.environ.get("AIR_RHYTHM_DATA_DIR") or (ROOT if PORTABLE else user_data_dir())
+PORTABLE = "--portable" in sys.argv or os.path.exists(os.path.join(APP_DIR, "portable.txt"))
+DATA_DIR = os.environ.get("AIR_RHYTHM_DATA_DIR") or (APP_DIR if PORTABLE else user_data_dir())
+# Files shipped with a packaged build only: pre-generated songs/beatmaps (copied to the
+# data folder on first start instead of generating them) and the hand model (used in place).
+# Running from source, these are None: everything is generated/downloaded into DATA_DIR.
+PREGENERATED_DIR = os.path.join(BUNDLE_DIR, "pregenerated") if FROZEN else None
+BUNDLED_MODEL = os.path.join(BUNDLE_DIR, "models", "hand_landmarker.task") if FROZEN else None
+ICON_PATH = os.path.join(BUNDLE_DIR, "resources", "icon.png")
+# MediaPipe imports matplotlib, which builds a font list on first use (~5 s). Keep its cache
+# in our data folder so that happens once. In packaged builds PyInstaller points it at a
+# temporary folder that is deleted on exit (rebuilt every start), so override that one.
+_MPL_CACHE = os.path.join(DATA_DIR, "cache", "matplotlib")
+if FROZEN:
+    os.environ["MPLCONFIGDIR"] = _MPL_CACHE
+else:
+    os.environ.setdefault("MPLCONFIGDIR", _MPL_CACHE)
 MAPS_DIR = os.path.join(DATA_DIR, "maps")
 ASSETS_DIR = os.path.join(DATA_DIR, "assets")
 MODELS_DIR = os.path.join(DATA_DIR, "models")
 SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
 LOG_PATH = os.path.join(DATA_DIR, "air_rhythm.log")
-# Where versions before the data folder kept their files (migrated on first start)
-LEGACY_DIR = ROOT
+# Where versions before the data folder kept their files (migrated on first start).
+# Packaged builds never stored anything there, so there is nothing to migrate.
+LEGACY_DIR = None if FROZEN else ROOT
 
 # ---------------------------------------------------------------- window
 TITLE = "Air Rhythm"

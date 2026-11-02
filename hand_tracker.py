@@ -53,6 +53,9 @@ def ensure_model():
     """Path to a verified hand model, downloading it if needed. The download goes to a
     .part file and is only renamed once complete and checked, so an interrupted
     download can never leave a broken model behind."""
+    if config.BUNDLED_MODEL and os.path.exists(config.BUNDLED_MODEL) \
+            and _sha256(config.BUNDLED_MODEL) == MODEL_SHA256:
+        return config.BUNDLED_MODEL           # shipped with the packaged build: no download
     path = os.path.join(config.MODELS_DIR, "hand_landmarker.task")
     if os.path.exists(path):
         if _sha256(path) == MODEL_SHA256:

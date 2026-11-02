@@ -20,9 +20,10 @@ def setup_logging():
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
-    console = logging.StreamHandler()
-    console.setFormatter(fmt)
-    root.addHandler(console)
+    if sys.stderr is not None:              # a windowed packaged build has no console
+        console = logging.StreamHandler()
+        console.setFormatter(fmt)
+        root.addHandler(console)
     try:
         os.makedirs(config.DATA_DIR, exist_ok=True)
         file = logging.handlers.RotatingFileHandler(config.LOG_PATH, maxBytes=1_000_000,

@@ -42,6 +42,10 @@ class App:
         pygame.init()
         pygame.display.set_caption(config.TITLE)
         try:
+            pygame.display.set_icon(pygame.image.load(config.ICON_PATH))
+        except (pygame.error, FileNotFoundError):
+            log.warning("Window icon not found at %s", config.ICON_PATH)
+        try:
             self.surface = pygame.display.set_mode((config.WINDOW_W, config.WINDOW_H),
                                                    pygame.SCALED, vsync=1)
         except pygame.error:

@@ -11,3 +11,8 @@ models/
 
 # Per-player settings
 settings.json
+
+# Build output (python tools/build.py)
+build/
+dist/
+*.egg-info/
