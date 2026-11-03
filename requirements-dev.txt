@@ -1,5 +1,6 @@
-# Everything needed to run the tests (pytest) and build the standalone game (tools/build.py)
+# Everything needed to run the tests (pytest), check the code (ruff) and build the game (tools/build.py)
 -r requirements.txt
 pyinstaller==6.22.3
 pillow==13.0.0                # lets PyInstaller turn the PNG icon into a Windows .ico
 pytest==9.2.0
+ruff==0.17.3                  # lint: python -m ruff check .

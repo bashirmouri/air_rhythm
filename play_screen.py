@@ -93,7 +93,7 @@ class PlayScreen:
             self._autoplay(now)
         self.game.update(now)
 
-        for i, j, ms, err in self.game.drain_events():
+        for i, j, _ms, err in self.game.drain_events():
             self.anims.append((i, j, now))
             if j:
                 self.app.hitsound.play()

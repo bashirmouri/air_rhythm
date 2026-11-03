@@ -7,14 +7,14 @@ import time
 import pygame
 
 import ui
-from version import __version__
 from audio_gen import CALIB_BEAT_MS, CALIB_COUNT_IN, CALIB_FIRST_MS, CALIB_TAPS
 from beatmap import load_beatmap
 from clock import SongClock
 from map_gen import CALIBRATION_AUDIO, LEVEL_PATHS
+from play_screen import COMBO_COLORS, PlayScreen
+from version import __version__
 
 LEVELS = list(LEVEL_PATHS)     # menu order: Easy, Normal
-from play_screen import COMBO_COLORS, PlayScreen
 
 
 MOUSE_ACTIVE_S = 2.0     # after the mouse moves, its cursor is shown instead of the hand for this long

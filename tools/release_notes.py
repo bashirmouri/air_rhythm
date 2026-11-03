@@ -34,7 +34,8 @@ def main():
     print(f"""## Download (Windows 10/11, 64-bit)
 1. Download **{name}** below.
 2. Unzip it anywhere and run `AirRhythm\\AirRhythm.exe`. No Python or install needed, and it works offline.
-3. Windows may show a SmartScreen warning because the game isn't code-signed: click **More info → Run anyway**.
+3. Windows may show a SmartScreen warning because the game isn't code-signed:
+   click **More info → Run anyway**.
 
 Updating from an older version: replace the old folder. Your settings and calibration are kept
 (they're stored in `%LOCALAPPDATA%\\AirRhythm`, not in the game folder).

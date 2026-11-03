@@ -61,7 +61,7 @@ class HandInput:
     kind = "hand"
 
     def __init__(self, playfield):
-        from hand_tracker import HandTracker   # imported here so mouse mode works without a camera
+        from hand_tracker import HandTracker  # imported here so mouse mode works without a camera
         self.playfield = playfield
         self.tracker = HandTracker()
         self.tracker.start()

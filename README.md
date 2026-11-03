@@ -33,6 +33,7 @@ the MediaPipe hand model (~8 MB).
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest            # about a minute; no camera, window, sound or internet needed
+python -m ruff check .      # code checks: real errors, likely bugs, import order, style
 ```
 
 | File | What it checks |
@@ -59,7 +60,7 @@ GitHub builds and tests every release on a fresh Windows machine
    game to check it works, and creates a **draft** release with the zip and release notes.
 4. Open **Releases**, check the draft, and click **Publish release**.
 
-Nothing is public until step 4. The tests also run on every push
+Nothing is public until step 4. The tests and the ruff check also run on every push
 (`.github/workflows/tests.yml`: Windows, Linux and macOS, Python 3.12–3.15).
 
 ## Build the Windows game locally

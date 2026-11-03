@@ -270,7 +270,7 @@ class OptionRow(_Animated):
             outer.midright = (x, y)
             panel(surf, outer, (0, 0, 0, 70), (255, 255, 255, 25), radius=15)
             sx = outer.x + 3
-            for o, img, w in zip(options, imgs, widths):
+            for o, img, w in zip(options, imgs, widths, strict=True):
                 seg = pygame.Rect(sx, outer.y + 3, w, outer.height - 6)
                 if o == selected:
                     pygame.draw.rect(surf, ACCENT, seg, border_radius=12)

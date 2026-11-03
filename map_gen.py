@@ -6,10 +6,22 @@ import math
 import os
 import random
 import shutil
+from itertools import pairwise
 
 import config
-from audio_gen import (BAR, BEAT, BPM, DROP_MELODY, N_BARS, make_calibration,
-                       make_first_steps, make_menu_music, section_of, wav_is_valid, write_wav)
+from audio_gen import (
+    BAR,
+    BEAT,
+    BPM,
+    DROP_MELODY,
+    N_BARS,
+    make_calibration,
+    make_first_steps,
+    make_menu_music,
+    section_of,
+    wav_is_valid,
+    write_wav,
+)
 from beatmap import load_beatmap
 
 log = logging.getLogger(__name__)
@@ -70,7 +82,7 @@ def place(times, radius, max_jump=190, seed=7):
     angle = rng.uniform(0, 2 * math.pi)
     positions = [(x, y)]
 
-    for prev_t, t in zip(times, times[1:]):
+    for prev_t, t in pairwise(times):
         gap_ms = (t - prev_t) * 1000
         dist = min(max(gap_ms * 0.24, 2 * radius * 1.1), max_jump)
         for attempt in range(60):
@@ -104,7 +116,7 @@ def make_beatmap(level="Normal"):
     positions = place([t for t, _ in onsets], radius, lv["max_jump"])
 
     objects, last_bar, last_sec = [], None, None
-    for (t, bar), (x, y) in zip(onsets, positions):
+    for (t, bar), (x, y) in zip(onsets, positions, strict=True):
         sec = section_of(bar)
         new_combo = not objects or (bar != last_bar and (bar % 2 == 0 or sec != last_sec))
         objects.append({"time": round(t * 1000), "x": round(x, 1), "y": round(y, 1),

@@ -198,7 +198,7 @@ def make_first_steps():
         ci = bar % 4
         root, chord = PROGRESSION[ci]
 
-        def at(beat):
+        def at(beat, t0=t0):                        # t0 bound now, not looked up later
             return t0 + beat * BEAT
 
         fade = 1 - (bar - 32) / 5 if sec == "outro" else 1.0

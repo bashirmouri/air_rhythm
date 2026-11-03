@@ -13,6 +13,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 - Tests run automatically on every push on Windows, Linux and macOS with Python 3.12-3.15.
 - Releases are built by GitHub from a version tag: tests, build, a check that the built game
   starts, then a draft release with the zip and notes taken from this changelog.
+- Code checks with ruff (`python -m ruff check .`) on every push. Fixed what it found: a
+  helper in the song generator that captured a loop variable, and pairs of lists that
+  must have the same length are now checked (`zip(..., strict=True)`). Generated songs
+  and beatmaps are unchanged.
 
 ## [0.1.0] - 2026-11-02
 

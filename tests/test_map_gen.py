@@ -2,6 +2,7 @@
 import json
 import math
 import os
+from itertools import pairwise
 
 import pytest
 
@@ -36,14 +37,14 @@ def test_circles_stay_on_the_playfield(level):
 @pytest.mark.parametrize("level, min_gap_ms", [("Easy", 1000), ("Normal", 250)])
 def test_fastest_rhythm(level, min_gap_ms):
     times = [o["time"] for o in circles(level)]
-    assert min(b - a for a, b in zip(times, times[1:])) >= min_gap_ms
+    assert min(b - a for a, b in pairwise(times)) >= min_gap_ms
 
 
 @pytest.mark.parametrize("level", ["Easy", "Normal"])
 def test_jumps_respect_the_level_limit(level):
     limit = map_gen.LEVELS[level]["max_jump"]
     objs = circles(level)
-    for a, b in zip(objs, objs[1:]):
+    for a, b in pairwise(objs):
         # positions are rounded to 0.1 px when saved
         assert math.hypot(b["x"] - a["x"], b["y"] - a["y"]) <= limit + 0.2
 

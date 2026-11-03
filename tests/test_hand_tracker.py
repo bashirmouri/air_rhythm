@@ -6,6 +6,7 @@ import json
 import os
 import statistics
 import threading
+from itertools import pairwise
 from types import SimpleNamespace as Point
 
 import numpy as np
@@ -95,7 +96,7 @@ def drawn_steps(smoothing_ms, monkeypatch):
             k += 1
         xs.append(tr.display_cursor(now)[0])
         now += 1 / 60
-    return [b - a for a, b in zip(xs, xs[1:])]
+    return [b - a for a, b in pairwise(xs)]
 
 
 def uneven_share(steps):

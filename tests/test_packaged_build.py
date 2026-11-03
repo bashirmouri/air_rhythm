@@ -4,12 +4,12 @@ packaged case is simulated by setting what PyInstaller sets (sys.frozen, sys._ME
 import json
 import os
 
+import numpy as np
+
 import config
 import map_gen
 from audio_gen import wav_is_valid, write_wav
 from conftest import ROOT, run_game
-
-import numpy as np
 
 SHOW_CONFIG = """
 import json, config
@@ -35,7 +35,7 @@ def packaged_config(tmp_path, portable=False):
         "LOCALAPPDATA": str(tmp_path / "localappdata"), "XDG_DATA_HOME": str(tmp_path / "xdg"),
         "HOME": str(tmp_path / "home")})
     assert code == 0, out
-    return app, json.loads(next(l for l in out if l.startswith("CONFIG "))[7:])
+    return app, json.loads(next(line for line in out if line.startswith("CONFIG "))[7:])
 
 
 def test_packaged_build_paths(tmp_path):
@@ -58,7 +58,7 @@ def test_portable_txt_next_to_the_exe(tmp_path):
 
 def test_running_from_source_uses_no_bundled_files(tmp_path):
     code, out = run_game(SHOW_CONFIG, tmp_path / "data")
-    c = json.loads(next(l for l in out if l.startswith("CONFIG "))[7:])
+    c = json.loads(next(line for line in out if line.startswith("CONFIG "))[7:])
     assert c["FROZEN"] is False and c["APP_DIR"] == ROOT
     assert c["PREGENERATED_DIR"] is None and c["BUNDLED_MODEL"] is None
     assert c["LEGACY_DIR"] == ROOT
@@ -66,7 +66,7 @@ def test_running_from_source_uses_no_bundled_files(tmp_path):
 
 def test_portable_flag_from_source(tmp_path):
     code, out = run_game(SHOW_CONFIG, tmp_path / "x", env={"AIR_RHYTHM_DATA_DIR": ""}, args=["--portable"])
-    c = json.loads(next(l for l in out if l.startswith("CONFIG "))[7:])
+    c = json.loads(next(line for line in out if line.startswith("CONFIG "))[7:])
     assert c["PORTABLE"] is True and c["DATA_DIR"] == ROOT
 
 

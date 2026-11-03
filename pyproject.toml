@@ -37,3 +37,16 @@ dependencies = { file = ["requirements.txt"] }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = [".", "tests", "tools"]      # so the game's own modules sort as first-party imports
+
+[tool.ruff.lint]
+# F: real errors (undefined names, unused imports)   E, W: style (pycodestyle)
+# I: import order   B: likely bugs (bugbear)   UP: modern Python syntax
+select = ["F", "E", "W", "I", "B", "UP"]
+
+# No `ruff format` yet: it would rewrite ~900 lines, mostly the deliberately aligned
+# end-of-line comments. Lint only, until/unless we decide to adopt the formatter.

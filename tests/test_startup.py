@@ -102,7 +102,7 @@ def test_unwritable_data_folder_shows_why(tmp_path):
                          blocker / "data", args=["--mouse"])
     assert code == 0 and "RETURNED" in out, out[-10:]
     assert "ERROR WINDOW: Air Rhythm: Air Rhythm can't start" in out
-    assert any("Startup failed: Air Rhythm couldn't create its game files" in l for l in out)
+    assert any("Startup failed: Air Rhythm couldn't create its game files" in line for line in out)
 
 
 def test_offline_hand_mode_explains_in_the_menu(tmp_path):
@@ -116,6 +116,6 @@ def test_offline_hand_mode_explains_in_the_menu(tmp_path):
         print("STATUS:", app.input.status_text())
         app.input.close()
     """, tmp_path)
-    status = next((l for l in out if l.startswith("STATUS:")), out[-5:])
+    status = next((line for line in out if line.startswith("STATUS:")), out[-5:])
     assert "Couldn't download the hand-tracking model (no internet?)" in status
     assert "Camera problem" not in status

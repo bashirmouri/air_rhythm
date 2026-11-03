@@ -37,7 +37,8 @@ def test_objects_are_sorted_by_time(write_beatmap):
 
 def test_missing_fields_get_defaults(tmp_path):
     path = tmp_path / "map.json"
-    path.write_text(json.dumps({"audio": "a.wav", "difficulty": {}, "objects": [{"time": 5, "x": 1, "y": 2}]}))
+    path.write_text(json.dumps({"audio": "a.wav", "difficulty": {},
+                                "objects": [{"time": 5, "x": 1, "y": 2}]}))
     bm = load_beatmap(str(path))
     assert (bm.title, bm.artist, bm.version) == ("Untitled", "Unknown", "Normal")
     assert (bm.ar, bm.cs, bm.od, bm.hp, bm.bpm, bm.lead_in_ms) == (5, 4, 5, 5, 120, 2000)
