@@ -25,6 +25,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 - Tests are split into `tests/unit` (fast) and `tests/integration` (whole game); packaging
   moved to `packaging/`; developer docs moved from the README to `docs/` (architecture,
   development, releasing). Nothing changes for players.
+- Maintenance pass: the hand tracker's per-frame logic moved out of the camera loop
+  (`_on_frame()`), and `PlayScreen.draw()` was split into named steps (verified pixel-identical
+  over 270 gameplay frames). New tests for menu buttons (mouse in hand mode, pinching),
+  calibration's offset calculation, mouse/keyboard hits and the tracker's frame logic. Ruff
+  now also limits function complexity. Line endings are normalized (`.gitattributes`).
+  Removed unused code (`FIRST_MAP_PATH`, `HandTracker.fps`).
 
 ## [0.1.0] - 2026-11-02
 

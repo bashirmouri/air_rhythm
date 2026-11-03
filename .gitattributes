@@ -1,0 +1,15 @@
+# Same line endings everywhere (Windows, macOS, Linux, GitHub's machines): text files are
+# stored and checked out with LF, whatever the local core.autocrlf setting says.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never touch these
+*.png binary
+*.ico binary
+*.wav binary
+*.zip binary
+*.task binary

@@ -49,6 +49,8 @@ Both run on every push on GitHub (Windows, Linux, macOS × Python 3.12–3.15).
 | `tests/unit/test_map_gen.py` | Easy/Normal maps (deterministic, on the playfield, rhythm and jump limits), damaged files rebuilt |
 | `tests/unit/test_hand_tracker.py` | Pinch detection, filtering, cursor smoothing (with real webcam timing), safe model download |
 | `tests/unit/test_settings.py` | Defaults, corrupt files, migration from older versions |
+| `tests/unit/test_inputs.py` | Mouse clicks and Z/X as hits; pinches reaching the game; the tracker's per-frame logic (pinch, release, hand briefly lost) |
+| `tests/unit/test_screens.py` | Buttons clicked or pinched (mouse works in hand mode); calibration turning taps into an offset |
 | `tests/unit/test_architecture.py` | The layer rules in [architecture.md](architecture.md) |
 | `tests/integration/test_packaged_build.py` | File locations in the packaged build vs. from source |
 | `tests/integration/test_startup.py` | Whole game: first start, no sound device, broken map, crash window, offline |

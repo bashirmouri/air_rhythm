@@ -49,7 +49,11 @@ src = ["src", "tests", "tools"]    # so air_rhythm and the test helpers sort as 
 [tool.ruff.lint]
 # F: real errors (undefined names, unused imports)   E, W: style (pycodestyle)
 # I: import order   B: likely bugs (bugbear)   UP: modern Python syntax
-select = ["F", "E", "W", "I", "B", "UP"]
+# C901: functions too complex to maintain (more than 12 decision points); split them up
+select = ["F", "E", "W", "I", "B", "UP", "C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
 
 # No `ruff format` yet: it would rewrite ~900 lines, mostly the deliberately aligned
 # end-of-line comments. Lint only, until/unless we decide to adopt the formatter.

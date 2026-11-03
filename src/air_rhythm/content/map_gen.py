@@ -31,7 +31,6 @@ class StartupError(Exception):
     """A problem the player can fix (disk full, folder not writable). The message is shown as is."""
 
 FIRST_MAP_DIR = os.path.join(config.MAPS_DIR, "first_steps")
-FIRST_MAP_PATH = os.path.join(FIRST_MAP_DIR, "beatmap.json")
 CALIBRATION_AUDIO = os.path.join(config.ASSETS_DIR, "calibration.wav")
 MENU_MUSIC = os.path.join(config.ASSETS_DIR, "menu_music.wav")
 

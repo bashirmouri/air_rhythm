@@ -127,22 +127,28 @@ class PlayScreen:
     def draw(self, surf, now=None):
         if now is None:
             now = self.clock.now_ms()
-        pf, bm, g = self.app.playfield, self.bm, self.game
-        objs = bm.objects
         surf.blit(self.app.background, (0, 0))
+        self._draw_beat_pulse(surf, now)
+        self.overlay.fill((0, 0, 0, 0))       # approach circles: drawn here, blended on top below
+        self._draw_circles(surf, self.overlay, now)
+        self._draw_hit_animations(surf, now)
+        surf.blit(self.overlay, (0, 0))
+        self._draw_judgments(surf, now)
+        self._draw_hud(surf, now)
 
-        # background pulses on every beat
-        if 0 <= now <= objs[-1].time:
-            beat_ms = 60000 / bm.bpm
+    def _draw_beat_pulse(self, surf, now):
+        """The background brightens briefly on every beat while the song plays."""
+        if 0 <= now <= self.bm.objects[-1].time:
+            beat_ms = 60000 / self.bm.bpm
             pulse = math.exp(-(now % beat_ms) / 140)
             v = int(10 * pulse)
             if v:
                 surf.fill((v, v // 2, v), special_flags=pygame.BLEND_RGB_ADD)
 
-        ov = self.overlay
-        ov.fill((0, 0, 0, 0))
-
-        # circles that are on screen and not judged yet
+    def _draw_circles(self, surf, ov, now):
+        """Circles that are on screen and not judged yet, with their approach circles (on ov)."""
+        pf, bm, g = self.app.playfield, self.bm, self.game
+        objs = bm.objects
         visible = []
         for i in range(g.first_unjudged, len(objs)):
             if objs[i].time - bm.preempt > now:
@@ -163,7 +169,9 @@ class PlayScreen:
             pygame.draw.circle(ov, color + (int(230 * alpha),), (int(sx), int(sy)),
                                int(self.r_px * (1 + 2.2 * f)), max(2, int(self.r_px * 0.08)))
 
-        # hit / miss animations
+    def _draw_hit_animations(self, surf, now):
+        """Hit circles grow and fade, missed ones fade; drops animations that have finished."""
+        pf, objs = self.app.playfield, self.bm.objects
         keep = []
         for i, j, start in self.anims:
             age = now - start
@@ -186,9 +194,10 @@ class PlayScreen:
                 keep.append((i, j, start))
         self.anims = keep
 
-        surf.blit(ov, (0, 0))
-
-        for i, j, start in self.anims:      # judgment numbers float up and fade
+    def _draw_judgments(self, surf, now):
+        """Judgment numbers (300 / 100 / 50 / miss) float up and fade."""
+        pf, objs = self.app.playfield, self.bm.objects
+        for i, j, start in self.anims:
             f = (now - start) / config.JUDGE_POPUP_MS
             if f < 0:
                 continue
@@ -197,8 +206,6 @@ class PlayScreen:
             img = self.popups[j]
             img.set_alpha(int((120 if j == 300 else 255) * (1 - f * f)))
             surf.blit(img, img.get_rect(center=(sx, sy - self.r_px * 0.2 - 24 * f)))
-
-        self._draw_hud(surf, now)
 
     def _draw_hud(self, surf, now):
         W, H = surf.get_size()

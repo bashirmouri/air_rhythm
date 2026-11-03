@@ -169,7 +169,10 @@ class HandTracker:
         self.preview_id = 0      # goes up by one with every new preview image
         self.ready = False
         self.error = None
-        self.fps = 0.0
+        self._fu = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
+        self._fv = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
+        self._pinch = PinchDetector()
+        self._last_seen = None   # capture time of the last frame with a hand
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
@@ -242,10 +245,7 @@ class HandTracker:
                  cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
                  cap.get(cv2.CAP_PROP_FPS))
 
-        fu = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
-        fv = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
-        pinch = PinchDetector()
-        last_ts, last_seen, frame_times = -1, None, []
+        last_ts, frame_times = -1, []
         fps_logged_at = time.perf_counter() + 5      # log the real camera fps once, after warm-up
 
         try:
@@ -263,37 +263,13 @@ class HandTracker:
                     mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), ts)
 
                 landmarks = result.hand_landmarks[0] if result.hand_landmarks else None
-                if landmarks:
-                    last_seen = t
-                    # Cursor = point between thumb and index tips. When you pinch,
-                    # both tips move toward each other, so this point stays put
-                    # (the index tip alone would jump and ruin your aim).
-                    cx = (landmarks[THUMB_TIP].x + landmarks[INDEX_TIP].x) / 2
-                    cy = (landmarks[THUMB_TIP].y + landmarks[INDEX_TIP].y) / 2
-                    u, v = map_to_zone(cx, cy)
-                    u, v = fu(u, t), fv(v, t)
-                    event = pinch.update(pinch_ratio(landmarks, w, h))
-                    with self.lock:
-                        self.cursor, self.visible, self.pinched = (u, v), True, pinch.pinched
-                        self._samples.append((time.perf_counter(), (u, v)))
-                    if event:
-                        self.events.put((event, t, (u, v)))
-                elif last_seen is None or t - last_seen > config.HAND_LOST_GRACE_S:
-                    if pinch.pinched:
-                        pinch.pinched = False
-                        self.events.put(("release", t, self.cursor))
-                    fu.reset()
-                    fv.reset()
-                    with self.lock:
-                        self.visible, self.pinched = False, False
-                        self._samples.clear()
+                self._on_frame(landmarks, w, h, t)
 
-                preview = self._make_preview(rgb, landmarks, pinch.pinched)
+                preview = self._make_preview(rgb, landmarks, self._pinch.pinched)
                 frame_times = [ft for ft in frame_times if t - ft < 1.0] + [t]
                 with self.lock:
                     self.preview = preview
                     self.preview_id += 1
-                    self.fps = len(frame_times)
                     self.ready = True
                 if fps_logged_at and t > fps_logged_at:
                     log.info("Camera running at %d fps (with hand tracking)", len(frame_times))
@@ -301,6 +277,37 @@ class HandTracker:
         finally:
             cap.release()
             landmarker.close()
+
+    def _on_frame(self, landmarks, width, height, t, arrived=None):
+        """What one camera frame means: where the cursor is, and whether a pinch started or
+        ended. `landmarks` is MediaPipe's hand (or None), `t` the frame's capture time,
+        `arrived` when the result reached the game (default: now). No camera needed, so
+        this is what the tests drive."""
+        if landmarks:
+            self._last_seen = t
+            # Cursor = point between thumb and index tips. When you pinch,
+            # both tips move toward each other, so this point stays put
+            # (the index tip alone would jump and ruin your aim).
+            cx = (landmarks[THUMB_TIP].x + landmarks[INDEX_TIP].x) / 2
+            cy = (landmarks[THUMB_TIP].y + landmarks[INDEX_TIP].y) / 2
+            u, v = map_to_zone(cx, cy)
+            u, v = self._fu(u, t), self._fv(v, t)
+            event = self._pinch.update(pinch_ratio(landmarks, width, height))
+            with self.lock:
+                self.cursor, self.visible, self.pinched = (u, v), True, self._pinch.pinched
+                self._samples.append((time.perf_counter() if arrived is None else arrived, (u, v)))
+            if event:
+                self.events.put((event, t, (u, v)))
+        elif self._last_seen is None or t - self._last_seen > config.HAND_LOST_GRACE_S:
+            if self._pinch.pinched:
+                self._pinch.pinched = False
+                self.events.put(("release", t, self.cursor))
+            self._fu.reset()
+            self._fv.reset()
+            with self.lock:
+                self.visible, self.pinched = False, False
+                self._samples.clear()
+        # otherwise the hand was lost only briefly: keep everything as it was
 
     def _make_preview(self, rgb, landmarks, pinched):
         pw, ph = self.PREVIEW_SIZE

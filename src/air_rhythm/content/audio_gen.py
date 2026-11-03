@@ -187,7 +187,7 @@ def lead(midi, dur):
 # ======================================================================
 # Compositions
 # ======================================================================
-def make_first_steps():
+def make_first_steps():  # noqa: C901 -- the song's score, bar by bar: reads best in one place
     """Returns the song as a float stereo array in [-1, 1]."""
     mix = _Mix(N_BARS * BAR + SONG_TAIL)
     K, S, H, OH, CR = kick(), snare(), hat(), hat(open_=True), crash()

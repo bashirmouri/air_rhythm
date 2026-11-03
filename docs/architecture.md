@@ -67,6 +67,20 @@ switches screens with `app.goto(screen)`. New screens go in `ui/screens/`, one f
 Screens that need each other in a loop (menu → play → results → menu) import the next one
 inside the method that switches to it, to avoid circular imports.
 
+## Keeping it maintainable
+
+Checked automatically on every push (tests + `ruff check`):
+
+- **Layers** only import downwards (`tests/unit/test_architecture.py`).
+- **Complexity:** no function may have more than 12 decision points (ruff `C901`). If one
+  grows past that, split it into named steps, like `PlayScreen.draw()` (beat pulse, circles,
+  hit animations, judgments). The one exception is `make_first_steps()`, the song's score,
+  which reads best bar by bar in one place.
+- **Logic separate from devices:** anything that decides something (a pinch, a hit, an
+  offset) lives in a function that can be called without a camera, window or sound, e.g.
+  `HandTracker._on_frame()` gets one frame's hand landmarks; the camera loop only feeds it.
+- **Line endings** are LF in every file on every OS (`.gitattributes`).
+
 ## Outside the package
 
 | Folder | What's in it |
