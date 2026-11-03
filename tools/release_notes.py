@@ -11,8 +11,8 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-from version import __version__  # noqa: E402
+sys.path.insert(0, os.path.join(ROOT, "src"))
+from air_rhythm import __version__  # noqa: E402
 
 REPO = "https://github.com/bashirmouri/air_rhythm"
 

@@ -21,11 +21,12 @@ BUILD = os.path.join(ROOT, "build")
 BUNDLE = os.path.join(BUILD, "bundle")
 DIST = os.path.join(ROOT, "dist")
 APP = os.path.join(DIST, "AirRhythm")
-sys.path.insert(0, ROOT)
-from version import __version__  # noqa: E402
+SRC = os.path.join(ROOT, "src")                  # the air_rhythm package
+sys.path.insert(0, SRC)
+from air_rhythm import __version__  # noqa: E402
 
 # Installed only to build, not shipped (their licenses don't need to go in the build)
-BUILD_ONLY = {"pyinstaller", "pyinstaller-hooks-contrib", "altgraph", "pefile",
+BUILD_ONLY = {"air-rhythm", "pyinstaller", "pyinstaller-hooks-contrib", "altgraph", "pefile",
               "pywin32-ctypes", "setuptools", "pip"}
 
 
@@ -34,7 +35,9 @@ def step(msg):
 
 
 def run(args, **env):
-    subprocess.run(args, cwd=ROOT, check=True, env={**os.environ, **env})
+    # PYTHONPATH: the steps below import air_rhythm, installed with `pip install -e .` or not
+    path = os.pathsep.join(p for p in (SRC, os.environ.get("PYTHONPATH")) if p)
+    subprocess.run(args, cwd=ROOT, check=True, env={**os.environ, "PYTHONPATH": path, **env})
 
 
 def check_versions():
@@ -63,7 +66,7 @@ def check_versions():
 def pregenerate():
     step("Pre-generating songs, beatmaps and menu music")
     out = os.path.join(BUNDLE, "pregenerated")
-    run([sys.executable, "map_gen.py"], AIR_RHYTHM_DATA_DIR=out)
+    run([sys.executable, "-m", "air_rhythm.content.map_gen"], AIR_RHYTHM_DATA_DIR=out)
     for junk in ("settings.json", "air_rhythm.log"):          # only game files belong here
         if os.path.exists(os.path.join(out, junk)):
             os.remove(os.path.join(out, junk))
@@ -71,11 +74,12 @@ def pregenerate():
 
 def bundle_model():
     step("Bundling the hand model")
-    import hand_tracker
+    from air_rhythm.controls import hand_tracker
     # The game's own download code fetches it (pinned URL + checksum). build/model_download
     # is kept between builds, so this only downloads the first time.
     cache = os.path.join(BUILD, "model_download")
-    run([sys.executable, "-c", "import hand_tracker; print(hand_tracker.ensure_model())"],
+    run([sys.executable, "-c",
+         "from air_rhythm.controls import hand_tracker; print(hand_tracker.ensure_model())"],
         AIR_RHYTHM_DATA_DIR=cache)
     src = os.path.join(cache, "models", "hand_landmarker.task")
     digest = hashlib.sha256(open(src, "rb").read()).hexdigest()
@@ -107,9 +111,10 @@ def version_info():
 
 def pyinstaller():
     step("Running PyInstaller (a few minutes)")
-    if not os.path.exists(os.path.join(ROOT, "resources", "icon.ico")):
+    if not os.path.exists(os.path.join(SRC, "air_rhythm", "resources", "icon.ico")):
         run([sys.executable, os.path.join("tools", "make_icon.py")])
-    run([sys.executable, "-m", "PyInstaller", "air_rhythm.spec", "--noconfirm", "--clean",
+    run([sys.executable, "-m", "PyInstaller", os.path.join("packaging", "air_rhythm.spec"),
+         "--noconfirm", "--clean",
          "--distpath", DIST, "--workpath", os.path.join(BUILD, "pyinstaller")])
 
 

@@ -14,8 +14,11 @@ import textwrap
 
 import pytest
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(TESTS_DIR)                    # the project folder
+SRC = os.path.join(ROOT, "src")                      # the air_rhythm package lives here
+sys.path.insert(0, SRC)
+DATA = os.path.join(TESTS_DIR, "data")               # recorded test data
 
 SESSION_DATA_DIR = tempfile.mkdtemp(prefix="air_rhythm_tests_")
 os.environ["AIR_RHYTHM_DATA_DIR"] = SESSION_DATA_DIR
@@ -33,7 +36,7 @@ def pytest_sessionfinish(session, exitstatus):
 @pytest.fixture(scope="session")
 def assets():
     """The generated songs and beatmaps, made once per test session (a few seconds)."""
-    import map_gen
+    from air_rhythm.content import map_gen
     map_gen.ensure_assets()
     return map_gen
 
@@ -54,13 +57,13 @@ def write_beatmap(tmp_path):
 
 
 def run_game(code, data_dir, env=None, args=(), timeout=180):
-    """Runs `code` in a fresh Python process, as if started with `python main.py *args`,
+    """Runs `code` in a fresh Python process, as if started with `python -m air_rhythm *args`,
     with its own data folder. For tests that start the whole game (each needs a clean
     pygame and fresh config). Returns (exit code, output lines)."""
     full_env = dict(os.environ, AIR_RHYTHM_DATA_DIR=str(data_dir), PYTHONIOENCODING="utf-8")
     full_env.update(env or {})
-    prelude = (f"import os, sys; sys.path.insert(0, {ROOT!r}); os.chdir({ROOT!r}); "
-               f"sys.argv = ['main.py', *{list(args)!r}]\n")
+    prelude = (f"import os, sys; sys.path.insert(0, {SRC!r}); os.chdir({ROOT!r}); "
+               f"sys.argv = ['air_rhythm', *{list(args)!r}]\n")
     p = subprocess.run([sys.executable, "-c", prelude + textwrap.dedent(code)], env=full_env,
                        capture_output=True, text=True, encoding="utf-8", timeout=timeout)
     return p.returncode, (p.stdout + p.stderr).splitlines()

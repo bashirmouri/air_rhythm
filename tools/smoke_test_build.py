@@ -41,6 +41,7 @@ def main():
         "nothing downloaded": "Downloading" not in log,
         "nothing generated (pre-generated files used)": "Generating" not in log,
         "no unexpected error": "Unexpected error" not in log and "Startup failed" not in log,
+        "bundled window icon found": "Window icon not found" not in log,
         "hand tracker loaded (camera opened, or only the camera is missing)":
             "Camera 0 opened" in log or "Could not open the webcam" in log,
     }

@@ -1,4 +1,4 @@
-"""Draws the app icon in the game's own style and saves resources/icon.png (window icon)
+"""Draws the app icon in the game's own style and saves src/air_rhythm/resources/icon.png (window icon)
 and resources/icon.ico (Windows .exe icon, several sizes). Run from the project root:
     python tools/make_icon.py
 Needs pygame-ce and Pillow (requirements-dev.txt)."""
@@ -9,7 +9,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pygame  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(ROOT, "resources")
+OUT_DIR = os.path.join(ROOT, "src", "air_rhythm", "resources")
 PINK, VIOLET, WHITE = (255, 102, 170), (140, 92, 255), (255, 255, 255)
 
 

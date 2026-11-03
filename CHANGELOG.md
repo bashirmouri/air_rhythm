@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Air Rhythm. The version number lives in `version.py`.
+All notable changes to Air Rhythm. The version number lives in `src/air_rhythm/__init__.py`.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
@@ -17,6 +17,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
   helper in the song generator that captured a loop variable, and pairs of lists that
   must have the same length are now checked (`zip(..., strict=True)`). Generated songs
   and beatmaps are unchanged.
+- The code is now one installable package, `air_rhythm`, in `src/`, organized in layers:
+  `core` (game rules), `content` (generated songs and maps), `controls` (hand and mouse),
+  `ui` (widgets, one file per screen), `system` (config, settings, logging) and `app`.
+  A test enforces that lower layers never import higher ones. Run from source with
+  `pip install -e .` and `python -m air_rhythm` (was `python main.py`).
+- Tests are split into `tests/unit` (fast) and `tests/integration` (whole game); packaging
+  moved to `packaging/`; developer docs moved from the README to `docs/` (architecture,
+  development, releasing). Nothing changes for players.
 
 ## [0.1.0] - 2026-11-02
 
