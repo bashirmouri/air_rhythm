@@ -167,3 +167,134 @@ def test_escape_leaves_without_saving(calib):
     tap_beats(s, [40] * CALIB_TAPS)
     s.handle([pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE, mod=0, unicode="", scancode=0)])
     assert app.went_to == "menu" and app.settings["input_offset_ms"] == 0.0
+
+
+# ---------------------------------------------------------------- pause
+class FakeTime:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+class PlayApp(FakeApp):
+    def __init__(self, kind="mouse"):
+        super().__init__(kind)
+        self.settings.update(no_fail=True)
+        self.surface = pygame.display.get_surface()
+        self.background = pygame.Surface(self.surface.get_size())
+        self.hitsound = type("Silent", (), {"play": lambda self: None})()
+        self.input.status_text = lambda: None
+
+    def cursor_screen(self):
+        return self.to_screen(self.input.cursor())
+
+
+def key(k):
+    return pygame.event.Event(pygame.KEYDOWN, key=k, mod=0, unicode="", scancode=0)
+
+
+@pytest.fixture
+def song(assets, monkeypatch):
+    """A PlayScreen on the Easy map, with a fake clock so the test controls time."""
+    from air_rhythm.ui.screens.play import PlayScreen
+    fake = FakeTime()
+    monkeypatch.setattr(time, "perf_counter", fake)
+    monkeypatch.setattr(menu, "MenuScreen", lambda app: "menu")
+    app = PlayApp()
+    s = PlayScreen(app, assets.LEVEL_PATHS["Easy"])
+    s.clock.audio = False                           # timing only; no music needed
+    yield app, s, fake
+    s.clock.stop()
+
+
+def play_until(s, fake, ms):
+    """Advance song time to `ms` (song time; negative = lead-in) and run one frame."""
+    if ms >= 0 and s.clock._pending:                 # first the frame where the music starts
+        fake.now = s.clock.start_t
+        s.update()
+    fake.now += (ms - s.clock.now_ms()) / 1000
+    s.update()
+
+
+def test_escape_pauses_and_freezes_the_song(song):
+    app, s, fake = song
+    play_until(s, fake, 3000)
+    s.handle([key(pygame.K_ESCAPE)])
+    assert s.state == "paused" and app.went_to is None           # paused, not quit
+    fake.now += 60
+    s.update()
+    assert s.clock.now_ms() == pytest.approx(3000)
+    s.draw(app.surface)                                          # the pause card draws
+
+
+def test_losing_window_focus_pauses(song):
+    app, s, fake = song
+    play_until(s, fake, 1000)
+    s.handle([pygame.event.Event(pygame.WINDOWFOCUSLOST)])
+    assert s.state == "paused"
+
+
+def test_resume_counts_down_then_carries_on_at_the_same_song_time(song):
+    app, s, fake = song
+    play_until(s, fake, 3000)
+    s.handle([key(pygame.K_ESCAPE)])
+    fake.now += 20
+    s.handle([key(pygame.K_ESCAPE)])                             # Esc again = Resume
+    assert s.state == "countdown"
+    fake.now += config.RESUME_COUNTDOWN_MS / 1000 / 2
+    s.update()
+    s.draw(app.surface)
+    assert s.state == "countdown" and s.clock.now_ms() == pytest.approx(3000)
+    fake.now += config.RESUME_COUNTDOWN_MS / 1000 / 2
+    s.update()
+    assert s.state == "playing" and s.clock.now_ms() == pytest.approx(3000)
+    fake.now += 0.25
+    assert s.clock.now_ms() == pytest.approx(3250)
+
+
+def test_presses_while_paused_or_counting_down_never_hit_circles(song):
+    app, s, fake = song
+    first = s.bm.objects[0]
+    play_until(s, fake, first.time - 5)                       # pause just before the first circle
+    s.handle([key(pygame.K_ESCAPE)])
+    on_circle = (first.x, first.y)
+    app.input.presses = [(fake.now, on_circle)]                  # pinch on the circle while paused
+    s.update()
+    s.resume()
+    app.input.presses = [(fake.now, on_circle)]                  # ... and during the countdown
+    s.update()
+    fake.now += config.RESUME_COUNTDOWN_MS / 1000
+    s.update()                                                   # the song resumes
+    fake.now += 0.005
+    app.input.presses = [(fake.now - 0.01, on_circle)]           # the camera reports a pinch late: it
+    s.update()                                                   # happened before the song resumed
+    assert s.game.results[0] is None
+    play_until(s, fake, first.time)
+    app.input.presses = [(fake.now, on_circle)]                  # once playing, a press counts
+    s.update()
+    assert s.game.results[0] == 300
+
+
+def test_pause_menu_buttons(song):
+    app, s, fake = song
+    play_until(s, fake, 1000)
+    s.pause()
+    resume, retry, quit_ = s.pause_menu.buttons
+    app.input.presses = [(fake.now, app.playfield.to_osu(*quit_.rect.center))]   # pinch on Quit
+    s.update()
+    assert app.went_to == "menu"
+    s.pause()
+    s.handle([key(pygame.K_r)])
+    assert type(app.went_to).__name__ == "PlayScreen" and app.went_to is not s
+    app.went_to.clock.stop()
+
+
+def test_mouse_works_on_the_pause_card_in_hand_mode(song):
+    app, s, fake = song
+    app.input.kind = "hand"
+    s.pause()
+    resume = s.pause_menu.buttons[0]
+    s.handle([mouse(pygame.MOUSEBUTTONDOWN, resume.rect.center)])
+    assert s.state == "countdown"

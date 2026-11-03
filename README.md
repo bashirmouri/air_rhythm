@@ -32,7 +32,8 @@ calibration measures it and the game subtracts it from every hit.
 | M | Menu music on/off |
 | V | Show/hide camera view |
 | F11 | Fullscreen |
-| Esc | Back / quit |
+| Esc | Pause during a song (Esc again resumes); back / quit elsewhere |
+| R / Q | When paused: retry / quit to menu |
 
 *First Steps* comes in two levels: **Easy** (60 circles, never faster than one per second,
 bigger circles, looser timing) and **Normal** (128 circles that follow the melody).

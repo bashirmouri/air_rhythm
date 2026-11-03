@@ -42,7 +42,7 @@ Gameplay`), never relative.
 | **core** | |
 | `core/gameplay.py` | Rules: hit windows, score, combo, accuracy, health, grades |
 | `core/beatmap.py` | Beatmap format + osu! difficulty formulas (AR, CS, OD) |
-| `core/clock.py` | Song clock: timing comes from a high-precision clock, never from frame counts |
+| `core/clock.py` | Song clock: timing comes from a high-precision clock, never from frame counts; pause/resume, and re-syncing to the music after a resume |
 | `core/playfield.py` | osu!'s 512×384 playfield ↔ window pixels |
 | **content** | |
 | `content/audio_gen.py` | Synthesizes the song, the menu music, the metronome and the hitsound with NumPy |
@@ -54,7 +54,8 @@ Gameplay`), never relative.
 | `ui/widgets.py` | Fonts, text, panels and the menu widgets (Play card, option rows, demo circle) |
 | `ui/screens/base.py` | Shared logic for screens made of buttons (hover, click, pinch) |
 | `ui/screens/menu.py` | Main menu |
-| `ui/screens/play.py` | Gameplay: circles, approach circles, animations, HUD, timing meter |
+| `ui/screens/play.py` | Gameplay: circles, approach circles, animations, HUD, timing meter; playing / paused / countdown states |
+| `ui/screens/pause.py` | The pause card (Resume / Retry / Quit), drawn by the gameplay screen over the frozen song |
 | `ui/screens/results.py` | Results after a song |
 | `ui/screens/calibration.py` | Measures the player's input delay with a metronome |
 | **system** | |

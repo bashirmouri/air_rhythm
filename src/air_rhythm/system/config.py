@@ -106,3 +106,4 @@ LEAD_IN_MS = 2000
 HIT_ANIM_MS = 240
 MISS_ANIM_MS = 160
 JUDGE_POPUP_MS = 600
+RESUME_COUNTDOWN_MS = 1800   # 3, 2, 1 after resuming from pause, before the song carries on

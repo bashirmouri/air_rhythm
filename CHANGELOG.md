@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Added
+- **Pause menu.** Esc during a song now pauses instead of quitting: **Resume**, **Retry** or
+  **Quit to menu**, by pinch, click or key (Esc / Enter / Space resume, R retry, Q quit). The
+  mouse works on it in hand mode too. The song also pauses by itself when the window loses
+  focus (alt-tab, clicking another window) or is minimized.
+- After resuming, a 3-2-1 countdown (1.8 s) before the song carries on, with a ring marking
+  where your cursor was, so you can bring your hand back first. Pinches during the pause or
+  the countdown never count as hits.
+- Pausing doesn't shift timing: song time stops exactly while paused, and because the music
+  can only pause and resume on its next audio buffer (~12 ms), the game measures the music's
+  real position after each resume and corrects for it. Measured over 10 pauses: within
+  ±2 ms of an unpaused song (without the correction it wandered up to 14 ms).
+
 ### Project
 - Automated test suite (93 tests, `python -m pytest`): game rules, beatmaps, generated maps,
   hand tracking and cursor smoothing, model download, settings, packaged-build paths,

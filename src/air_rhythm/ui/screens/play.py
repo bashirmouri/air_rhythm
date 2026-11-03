@@ -1,6 +1,11 @@
-"""The gameplay screen: runs the song, sends presses to the rules, draws everything."""
+"""The gameplay screen: runs the song, sends presses to the rules, draws everything.
+
+States: playing -> paused (Esc, or the window loses focus) -> countdown -> playing.
+While paused or counting down the song clock is frozen, so nothing moves and timing
+carries on exactly where it stopped."""
 import collections
 import math
+import time
 
 import pygame
 
@@ -9,8 +14,12 @@ from air_rhythm.core.clock import SongClock
 from air_rhythm.core.gameplay import JUDGE_COLORS, Gameplay
 from air_rhythm.system import config
 from air_rhythm.ui import widgets as ui
+from air_rhythm.ui.screens.pause import PauseMenu
 
 COMBO_COLORS = [(255, 102, 170), (102, 204, 255), (255, 200, 90), (150, 240, 150)]
+# Events that pause the song: the window lost focus (alt-tab, a click elsewhere) or was minimized
+AUTO_PAUSE_EVENTS = (pygame.WINDOWFOCUSLOST, pygame.WINDOWMINIMIZED)
+BADGE_R = 58                     # radius of the resume countdown's badge
 
 
 def make_circle_sprite(r, color, number):
@@ -57,6 +66,12 @@ class PlayScreen:
                        for j, label in ((300, "300"), (100, "100"), (50, "50"), (0, "miss"))}
         self._auto_pos = None
         self._auto_down_until = -1
+        self.state = "playing"
+        self.pause_menu = PauseMenu(app, self.resume, self.retry, self.quit_to_menu)
+        self._countdown_end = None       # perf_counter time the countdown reaches 0
+        self._paused_cursor = None       # where the cursor was when the song paused (screen px)
+        self._resumed_at = 0.0           # presses from before this moment are ignored
+        self._badge = None
         self.clock = SongClock()
         self.clock.start(self.bm.audio_path, self.bm.lead_in_ms)
 
@@ -68,25 +83,67 @@ class PlayScreen:
 
     # ------------------------------------------------------------- cursor overrides (autoplay)
     def cursor_override(self):
+        if self.state == "paused":           # the mouse works on the pause card, even in hand mode
+            return self.pause_menu.cursor_override()
         return self._auto_pos if self.autoplay else None
 
     def cursor_down_override(self):
-        return self.clock.now_ms() < self._auto_down_until if self.autoplay else None
+        if self.autoplay and self.state == "playing":
+            return self.clock.now_ms() < self._auto_down_until
+        return None
+
+    # ------------------------------------------------------------- pause
+    def pause(self):
+        if self.state == "playing":
+            self._paused_cursor = self.app.cursor_screen()
+        self.clock.pause()
+        self.state = "paused"
+
+    def resume(self):
+        """Count down before the song carries on, so the player can bring the cursor back."""
+        self.state = "countdown"
+        self._countdown_end = time.perf_counter() + config.RESUME_COUNTDOWN_MS / 1000
+
+    def retry(self):
+        self.clock.stop()
+        self.app.goto(PlayScreen(self.app, self.map_path, self.autoplay))
+
+    def quit_to_menu(self):
+        self.clock.stop()
+        from air_rhythm.ui.screens.menu import MenuScreen
+        self.app.goto(MenuScreen(self.app))
+
+    def _countdown_running(self):
+        """True while counting down; when it reaches 0 the song resumes."""
+        self.app.input.take_presses()        # pinches during the countdown don't count
+        if time.perf_counter() < self._countdown_end:
+            return True
+        self.clock.resume()
+        self.state = "playing"
+        self._resumed_at = time.perf_counter()
+        return False
 
     # ------------------------------------------------------------- events / update
     def handle(self, events):
+        if self.state == "paused":
+            self.pause_menu.handle(events)
+            return
         for e in events:
-            if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-                self.clock.stop()
-                from air_rhythm.ui.screens.menu import MenuScreen
-                self.app.goto(MenuScreen(self.app))
+            if (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE) or e.type in AUTO_PAUSE_EVENTS:
+                self.pause()
+                return
 
     def update(self):
+        if self.state == "paused":
+            self.pause_menu.update()         # pinch or click on Resume / Retry / Quit
+            return
+        if self.state == "countdown" and self._countdown_running():
+            return
         self.clock.update()
         now = self.clock.now_ms()
         offset = self.app.settings["input_offset_ms"]
         for t, pos in self.app.input.take_presses():
-            if pos is not None and not self.autoplay:
+            if pos is not None and not self.autoplay and t >= self._resumed_at:
                 # subtract the calibrated delay so a pinch seen late still counts on time
                 self.game.press(self.clock.now_ms(t) - offset, pos)
         if self.autoplay:
@@ -135,6 +192,39 @@ class PlayScreen:
         surf.blit(self.overlay, (0, 0))
         self._draw_judgments(surf, now)
         self._draw_hud(surf, now)
+        if self.state == "paused":
+            self.pause_menu.draw(surf, f"{self.bm.title}  ·  {self.bm.version}")
+        elif self.state == "countdown":
+            self._draw_countdown(surf)
+
+    def _draw_countdown(self, surf):
+        """3, 2, 1 on a dark badge whose ring runs out, and a ring where the cursor was when the
+        song paused. The badge sits right of the playfield, where no circle can be, so it never
+        hides the next circle. Fixed font sizes only: a new size each frame would load a font."""
+        W, H = surf.get_size()
+        center = (W - 108, H // 2)
+        total = config.RESUME_COUNTDOWN_MS / 1000
+        left = max(0.0, self._countdown_end - time.perf_counter())
+        step = total / 3
+        number = min(3, int(left / step) + 1)
+        f = 1 - (left % step) / step                 # 0 -> 1 within each number
+        if self._badge is None:
+            self._badge = pygame.Surface((2 * BADGE_R, 2 * BADGE_R), pygame.SRCALPHA)
+            pygame.draw.circle(self._badge, (12, 10, 22, 215), (BADGE_R, BADGE_R), BADGE_R)
+        surf.blit(self._badge, self._badge.get_rect(center=center))
+        ring = pygame.Rect(0, 0, 2 * BADGE_R - 8, 2 * BADGE_R - 8)
+        ring.center = center
+        pygame.draw.arc(surf, ui.ACCENT, ring, math.pi / 2, math.pi / 2 + 2 * math.pi * left / total, 5)
+        ui.label(surf, str(number), 64, ui.WHITE, (center[0], center[1] + 2), "center", "black",
+                 alpha=int(255 * (1 - 0.5 * f)))
+        hint = ui.render("Get back in position", 17, ui.WHITE, "semibold")
+        pill = pygame.Rect(0, 0, hint.get_width() + 32, 34)
+        pill.center = (center[0], center[1] + BADGE_R + 28)
+        ui.panel(surf, pill, (12, 10, 22, 215), (255, 255, 255, 36), radius=17)
+        surf.blit(hint, hint.get_rect(center=pill.center))
+        if self._paused_cursor is not None:
+            pulse = 0.5 + 0.5 * math.sin(time.perf_counter() * 9)
+            ui.ring(surf, ui.ACCENT, self._paused_cursor, 30 + 6 * pulse, 3)
 
     def _draw_beat_pulse(self, surf, now):
         """The background brightens briefly on every beat while the song plays."""
