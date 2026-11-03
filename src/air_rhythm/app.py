@@ -77,16 +77,18 @@ class App:
             pygame.mixer.set_reserved(1)
             self.music_channel = pygame.mixer.Channel(0)
             self.menu_music = pygame.mixer.Sound(MENU_MUSIC)
-            self.menu_music.set_volume(config.MENU_MUSIC_VOLUME)
         else:
             self.hitsound = _SilentSound()
         self.trail = collections.deque(maxlen=14)
+        self.frame_clock = pygame.time.Clock()
+        self._fullscreen = False
         self.input = None
         self.set_input_mode(self.settings["input_mode"])
 
         from air_rhythm.ui.screens.menu import MenuScreen
         self.screen = None
         self.goto(MenuScreen(self))
+        self.apply_settings()                # volumes, fullscreen
         self.screen.draw(self.surface)      # warm-up: loads fonts and glyphs before the first shown frame
         self.running = True
         # With vsync, flip() already waits for the monitor, so the frame limiter must not sleep too:
@@ -115,8 +117,29 @@ class App:
     def set_input_mode(self, mode):
         if self.input:
             self.input.close()
-        self.input = HandInput(self.playfield) if mode == "hand" else MouseInput(self.playfield)
+        if mode == "hand":
+            self.input = HandInput(self.playfield, self.settings)
+        else:
+            self.input = MouseInput(self.playfield)
         self.settings["input_mode"] = mode
+
+    def apply_settings(self):
+        """Use the current settings right away (the Settings screen calls this on every change)."""
+        s = self.settings
+        if not self.input.apply(s):          # another camera: restart hand tracking with it
+            self.set_input_mode(self.input.kind)
+        if self.audio_ok:
+            self.hitsound.set_volume(s["hitsound_volume"] / 100)
+            self.menu_music.set_volume(s["menu_music_volume"] / 100)
+            pygame.mixer.music.set_volume(s["music_volume"] / 100)
+        self.update_menu_music()
+        if s["fullscreen"] != self._fullscreen:
+            try:
+                pygame.display.toggle_fullscreen()
+                self._fullscreen = s["fullscreen"]
+            except pygame.error as e:          # some drivers can't; stay windowed
+                log.warning("Couldn't switch fullscreen: %s", e)
+                s["fullscreen"] = self._fullscreen
 
     def set_level(self, level):
         self.settings["level"] = level
@@ -132,7 +155,8 @@ class App:
         """Fade the menu music in on screens that want it (the menu), out everywhere else."""
         if not self.audio_ok:
             return
-        want = getattr(self.screen, "menu_music", False) and self.settings["menu_music"]
+        want = (getattr(self.screen, "menu_music", False) and self.settings["menu_music"]
+                and self.settings["menu_music_volume"] > 0)
         if want and not self._menu_music_on:
             self.music_channel.stop()        # in case it is still fading out
             self.music_channel.play(self.menu_music, loops=-1, fade_ms=config.MENU_MUSIC_FADE_IN_MS)
@@ -177,7 +201,7 @@ class App:
             pygame.draw.circle(surf, ui.WHITE, (x, y), 3)
 
     def draw_camera_preview(self, surf):
-        if not self.settings["show_camera"]:
+        if not self.settings["show_camera"] or getattr(self.screen, "draws_camera_preview", False):
             return
         img = self.input.preview_surface()
         if img is None:
@@ -188,9 +212,13 @@ class App:
         surf.blit(img, rect)
         pygame.draw.rect(surf, (255, 255, 255), rect.inflate(4, 4), 2, border_radius=4)
 
+    def draw_fps(self, surf):
+        if self.settings["show_fps"]:
+            ui.label(surf, f"{self.frame_clock.get_fps():.0f} fps", 13, ui.DIM, (8, 6), "topleft", "semibold")
+
     # ------------------------------------------------------------- main loop
     def run(self):
-        clock = pygame.time.Clock()
+        clock = self.frame_clock
         # For automated checks of the packaged game (it has no console to stop it from):
         # AIR_RHYTHM_QUIT_AFTER_S=8 closes it normally after 8 seconds.
         quit_after = float(os.environ.get("AIR_RHYTHM_QUIT_AFTER_S") or 0)
@@ -205,7 +233,8 @@ class App:
                     if e.type == pygame.QUIT:
                         self.running = False
                     elif e.type == pygame.KEYDOWN and e.key == pygame.K_F11:
-                        pygame.display.toggle_fullscreen()
+                        self.settings["fullscreen"] = not self.settings["fullscreen"]
+                        self.apply_settings()
                     elif e.type == pygame.KEYDOWN and e.key == pygame.K_v:
                         self.settings["show_camera"] = not self.settings["show_camera"]
                 self.input.handle_events(events)
@@ -215,6 +244,7 @@ class App:
                     screen.update()
                 self.screen.draw(self.surface)
                 self.draw_camera_preview(self.surface)
+                self.draw_fps(self.surface)
                 self.draw_cursor(self.surface)
                 pygame.display.flip()
                 if self.vsync:

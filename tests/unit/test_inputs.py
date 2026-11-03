@@ -128,3 +128,28 @@ def test_no_hand_at_all_shows_nothing():
     tr = hand_tracker.HandTracker()
     tr._on_frame(None, 640, 640, t=1.0)
     assert not tr.visible and events(tr) == []
+
+
+def test_hand_settings_apply_to_the_running_tracker():
+    h = hand_input()
+    h.camera_index = 0
+    same_camera = h.apply({"hand_area": "Small", "pinch_sensitivity": "High",
+                           "cursor_smoothing": "Off", "camera_index": 0})
+    tr = h.tracker
+    assert same_camera
+    assert tr.zone == config.HAND_AREAS["Small"]
+    assert (tr._pinch.close, tr._pinch.open) == config.PINCH_SENSITIVITY["High"]
+    assert tr.smoothing_ms == 0
+    assert not h.apply({"camera_index": 2})              # another camera: needs a new tracker
+
+
+def test_hand_area_changes_where_the_cursor_goes():
+    right_of_center = [Point(x=p.x + 0.15, y=p.y) for p in OPEN]
+    cursors = {}
+    for area in ("Small", "Large"):
+        tr = hand_tracker.HandTracker(zone=config.HAND_AREAS[area])
+        tr._on_frame(right_of_center, 640, 480, t=1.0)
+        cursors[area] = tr.cursor
+    small, large = cursors["Small"], cursors["Large"]
+    # the same hand position is further from the center in a smaller area
+    assert abs(small[0] - 0.5) > abs(large[0] - 0.5)

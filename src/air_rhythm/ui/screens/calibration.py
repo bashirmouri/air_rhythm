@@ -12,11 +12,14 @@ from air_rhythm.ui import widgets as ui
 
 class CalibrationScreen:
     """Plays a metronome; you pinch on each click. The median delay between the
-    click and your pinch is your offset (camera + processing + audio + reaction
-    habits). The game subtracts it from every hit."""
+    click and your pinch is your total delay (sound output + camera + processing +
+    reaction habits). The sound delay is set separately (Settings), so what's left is
+    saved as the input delay, which the game subtracts from every hit.
+    `back()` makes the screen to return to (default: the menu)."""
 
-    def __init__(self, app):
+    def __init__(self, app, back=None):
         self.app = app
+        self._back = back
         self.beats = [CALIB_FIRST_MS + i * CALIB_BEAT_MS for i in range(CALIB_COUNT_IN + CALIB_TAPS)]
         self.restart()
 
@@ -27,20 +30,26 @@ class CalibrationScreen:
         self.clock = SongClock()
         self.clock.start(CALIBRATION_AUDIO, 500)
 
+    def leave(self):
+        self.clock.stop()
+        if self._back is None:
+            from air_rhythm.ui.screens.menu import MenuScreen  # menu.py imports this file
+            self.app.goto(MenuScreen(self.app))
+        else:
+            self.app.goto(self._back())
+
     def handle(self, events):
-        from air_rhythm.ui.screens.menu import MenuScreen  # menu.py imports this file
         for e in events:
             if e.type != pygame.KEYDOWN:
                 continue
             if e.key == pygame.K_ESCAPE:
-                self.clock.stop()
-                self.app.goto(MenuScreen(self.app))
+                self.leave()
             elif e.key == pygame.K_r:
                 self.clock.stop()
                 self.restart()
             elif e.key in (pygame.K_RETURN, pygame.K_SPACE) and self.done and self.result is not None:
                 self.app.settings["input_offset_ms"] = round(self.result, 1)
-                self.app.goto(MenuScreen(self.app))
+                self.leave()
 
     def update(self):
         self.clock.update()
@@ -55,7 +64,9 @@ class CalibrationScreen:
         if self.clock.now_ms() > self.beats[-1] + 800:
             self.done = True
             if len(self.taps) >= 8:
-                self.result = statistics.median(self.taps)   # median ignores the odd bad tap
+                # median ignores the odd bad tap; the sound delay is accounted for separately
+                total = statistics.median(self.taps)
+                self.result = total - self.app.settings.get("audio_offset_ms", 0.0)
 
     def draw(self, surf):
         W, H = surf.get_size()
@@ -83,7 +94,7 @@ class CalibrationScreen:
                     (255, 190, 120), (W // 2, 440))
         else:
             spread = statistics.pstdev(self.taps)
-            ui.text(surf, f"Your offset: {self.result:+.0f} ms   (spread {spread:.0f} ms)", 44,
+            ui.text(surf, f"Your input delay: {self.result:+.0f} ms   (spread {spread:.0f} ms)", 44,
                     ui.WHITE, (W // 2, 440))
             ui.text(surf, "Enter: save    R: retry    Esc: cancel", 30, ui.DIM, (W // 2, 490))
 

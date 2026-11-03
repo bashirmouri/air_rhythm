@@ -71,7 +71,6 @@ TARGET_FPS = 120
 # ---------------------------------------------------------------- audio
 SAMPLE_RATE = 44100
 AUDIO_BUFFER = 512          # smaller buffer = less audio delay
-MENU_MUSIC_VOLUME = 0.5     # 0..1
 MENU_MUSIC_FADE_IN_MS = 2500
 MENU_MUSIC_FADE_OUT_MS = 900
 
@@ -100,6 +99,25 @@ FILTER_D_CUTOFF = 1.0
 # moves evenly even though webcams deliver frames unevenly. Higher = smoother but trails
 # your hand more; 0 = raw (choppy). Hits always use the exact, undelayed position.
 CURSOR_SMOOTHING_MS = 60
+
+
+# ---------------------------------------------------------------- player choices (Settings screen)
+# The values above are the "Medium" defaults; the Settings screen picks one of these by name.
+def _zone_scaled(f):
+    """ACTIVE_ZONE made f times as big around the same center."""
+    left, top, right, bottom = ACTIVE_ZONE
+    cx, cy, hw, hh = (left + right) / 2, (top + bottom) / 2, (right - left) / 2 * f, (bottom - top) / 2 * f
+    return (cx - hw, cy - hh, cx + hw, cy + hh)
+
+
+# Hand area: smaller = less arm movement, but small hand shakes move the cursor more.
+HAND_AREAS = {"Small": _zone_scaled(0.75), "Medium": ACTIVE_ZONE, "Large": _zone_scaled(1.25)}
+# Pinch sensitivity (close, open thresholds): High = a looser pinch already counts.
+PINCH_SENSITIVITY = {"Low": (0.22, 0.34), "Medium": (PINCH_CLOSE, PINCH_OPEN), "High": (0.34, 0.46)}
+CURSOR_SMOOTHINGS = {"Off": 0, "Low": 30, "Medium": CURSOR_SMOOTHING_MS, "High": 100}
+CAMERA_COUNT = 4            # cameras 1-4 to choose from (OpenCV indexes 0-3)
+VOLUME_STEP = 10            # % per press on the Settings screen
+OFFSET_STEP_MS = 5
 
 # ---------------------------------------------------------------- gameplay
 LEAD_IN_MS = 2000

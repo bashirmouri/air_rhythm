@@ -4,6 +4,7 @@ mouse are interchangeable:
   is_down()       -> True while pressing
   take_presses()  -> list of (perf_counter time, (x, y)) since the last call
   status_text()   -> a message to show the player, or None
+  apply(settings) -> use changed settings now; False if the input must be recreated
 """
 import time
 
@@ -52,6 +53,9 @@ class MouseInput:
     def preview_surface(self):
         return None
 
+    def apply(self, settings):
+        return True                 # no mouse settings yet
+
     def close(self):
         pass
 
@@ -60,15 +64,29 @@ class HandInput:
     """Webcam: pinch point to aim, pinch to hit."""
     kind = "hand"
 
-    def __init__(self, playfield):
+    def __init__(self, playfield, settings=None):
         from air_rhythm.controls.hand_tracker import (
             HandTracker,  # imported here so mouse mode works without a camera
         )
         self.playfield = playfield
-        self.tracker = HandTracker()
+        s = settings or {}
+        self.camera_index = s.get("camera_index", config.CAMERA_INDEX)
+        self.tracker = HandTracker(self.camera_index)
+        self.apply(s)
         self.tracker.start()
         self._presses = []
         self._preview, self._preview_id = None, -1
+
+    def apply(self, settings):
+        """Use the player's hand settings (hand area, pinch, smoothing) right away.
+        Returns False if the camera changed: that needs a new HandInput."""
+        tr = self.tracker
+        tr.zone = config.HAND_AREAS.get(settings.get("hand_area"), config.ACTIVE_ZONE)
+        tr.set_pinch(*config.PINCH_SENSITIVITY.get(settings.get("pinch_sensitivity"),
+                                                   (config.PINCH_CLOSE, config.PINCH_OPEN)))
+        tr.smoothing_ms = config.CURSOR_SMOOTHINGS.get(settings.get("cursor_smoothing"),
+                                                       config.CURSOR_SMOOTHING_MS)
+        return settings.get("camera_index", self.camera_index) == self.camera_index
 
     @staticmethod
     def _to_osu(uv):

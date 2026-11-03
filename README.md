@@ -16,8 +16,15 @@ Windows may show a SmartScreen warning because the game isn't code-signed: click
 **To update:** download the new zip and replace the old folder. Your settings and
 calibration are kept (see [Where files are saved](#where-files-are-saved)).
 
-**First thing to do:** open *Calibrate offset* from the menu. Webcams add 50-150 ms of delay;
-calibration measures it and the game subtracts it from every hit.
+**First thing to do:** open **Settings** and pick *Measure input delay*. Webcams add 50-150 ms
+of delay; calibration measures it and the game subtracts it from every hit. Playing on
+**Bluetooth headphones**? Set *Sound delay* first (they play sound ~150-250 ms late), then
+measure the input delay.
+
+**Settings** also has the volumes, which camera to use, the size of the hand area (smaller =
+less arm movement), how loose a pinch can be, cursor smoothing, fullscreen and an FPS counter.
+The camera view there is large, so you can try changes on the spot. Changes apply right away
+and are saved when you close the game.
 
 ## Controls
 
@@ -26,7 +33,8 @@ calibration measures it and the game subtracts it from every hit.
 | Pinch / click / Z / X | Hit, or press a menu button |
 | Enter | Play |
 | L | Switch level: Easy / Normal |
-| C | Calibrate |
+| S | Settings |
+| C | Measure input delay (calibrate) |
 | I | Switch hand / mouse input |
 | N | No-fail on/off |
 | M | Menu music on/off |

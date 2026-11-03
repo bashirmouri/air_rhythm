@@ -80,12 +80,11 @@ def frame_times():
     return json.load(open(os.path.join(DATA, "camera_frame_times.json")))["arrival_s"]
 
 
-def drawn_steps(smoothing_ms, monkeypatch):
+def drawn_steps(smoothing_ms):
     """Feeds the real camera timing (hand moving at constant speed) into display_cursor
     and samples it at 60 fps. Returns how far the cursor moved on each screen frame."""
-    monkeypatch.setattr(config, "CURSOR_SMOOTHING_MS", smoothing_ms)
     arrivals = [t + 1.0 for t in frame_times()]
-    tr = hand_tracker.HandTracker()                         # thread not started
+    tr = hand_tracker.HandTracker(smoothing_ms=smoothing_ms)     # thread not started
     tr.visible = True
     xs, k, now = [], 0, arrivals[20]
     while now < arrivals[-1] - 0.2:
@@ -102,9 +101,9 @@ def uneven_share(steps):
     return sum(abs(s - ideal) > 0.5 * ideal for s in steps) / len(steps)
 
 
-def test_smoothed_cursor_moves_evenly_with_a_real_webcam(monkeypatch):
-    smooth = drawn_steps(60, monkeypatch)
-    raw = drawn_steps(0, monkeypatch)
+def test_smoothed_cursor_moves_evenly_with_a_real_webcam():
+    smooth = drawn_steps(60)
+    raw = drawn_steps(0)
     assert uneven_share(raw) > 0.5            # the raw cursor stutters (81% measured)
     assert uneven_share(smooth) < 0.05        # smoothed: almost every frame even (1.8% measured)
 
@@ -115,17 +114,15 @@ def test_cursor_hidden_without_a_hand():
     assert tr.display_cursor(1.0) is None
 
 
-def test_cursor_does_not_slide_across_after_the_hand_was_lost(monkeypatch):
-    monkeypatch.setattr(config, "CURSOR_SMOOTHING_MS", 60)
-    tr = hand_tracker.HandTracker()
+def test_cursor_does_not_slide_across_after_the_hand_was_lost():
+    tr = hand_tracker.HandTracker(smoothing_ms=60)
     tr.visible = True
     tr._samples.extend([(0.0, (0.1, 0.5)), (0.5, (0.9, 0.5))])   # 0.5 s gap
     assert tr.display_cursor(0.3) == (0.9, 0.5)
 
 
-def test_cursor_holds_still_when_the_camera_is_late(monkeypatch):
-    monkeypatch.setattr(config, "CURSOR_SMOOTHING_MS", 60)
-    tr = hand_tracker.HandTracker()
+def test_cursor_holds_still_when_the_camera_is_late():
+    tr = hand_tracker.HandTracker(smoothing_ms=60)
     tr.visible = True
     tr._samples.extend([(0.0, (0.1, 0.5)), (0.033, (0.2, 0.5))])
     assert tr.display_cursor(0.5) == (0.2, 0.5)

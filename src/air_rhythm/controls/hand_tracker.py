@@ -156,9 +156,15 @@ def map_to_zone(x, y, zone=config.ACTIVE_ZONE):
 
 
 class HandTracker:
+    """`zone`, `smoothing_ms` and the pinch thresholds (set_pinch) can be changed while it runs
+    (the Settings screen does); a different `camera_index` needs a new tracker."""
     PREVIEW_SIZE = (240, 180)
 
-    def __init__(self):
+    def __init__(self, camera_index=config.CAMERA_INDEX, zone=config.ACTIVE_ZONE,
+                 pinch=(config.PINCH_CLOSE, config.PINCH_OPEN), smoothing_ms=config.CURSOR_SMOOTHING_MS):
+        self.camera_index = camera_index
+        self.zone = zone                 # part of the camera image that maps to the playfield
+        self.smoothing_ms = smoothing_ms
         self.lock = threading.Lock()
         self.events = queue.Queue()
         self.cursor = None
@@ -171,7 +177,7 @@ class HandTracker:
         self.error = None
         self._fu = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
         self._fv = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
-        self._pinch = PinchDetector()
+        self._pinch = PinchDetector(*pinch)
         self._last_seen = None   # capture time of the last frame with a hand
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -179,12 +185,15 @@ class HandTracker:
     def start(self):
         self._thread.start()
 
+    def set_pinch(self, close, open_):
+        self._pinch.close, self._pinch.open = close, open_
+
     def display_cursor(self, now=None):
         """Cursor position for drawing a frame at time `now`.
         Webcams deliver frames unevenly (often 12-90 ms apart instead of a steady 33),
         and the screen shows 60+ frames per second, so a cursor that jumps to each new
         camera position looks choppy. Instead the recent positions are played back
-        CURSOR_SMOOTHING_MS late, gliding between them: the delay hides the uneven
+        `smoothing_ms` late, gliding between them: the delay hides the uneven
         arrivals, so the cursor moves at an even speed. Hits still use the exact
         position from the moment the frame was captured."""
         if now is None:
@@ -195,7 +204,7 @@ class HandTracker:
             samples = list(self._samples)
         if not samples:
             return self.cursor
-        delay = config.CURSOR_SMOOTHING_MS / 1000
+        delay = self.smoothing_ms / 1000
         if delay <= 0:
             return samples[-1][1]
         rt = now - delay
@@ -235,13 +244,13 @@ class HandTracker:
             min_tracking_confidence=0.5,
         )
         landmarker = vision.HandLandmarker.create_from_options(options)
-        cap = cv2.VideoCapture(config.CAMERA_INDEX)
+        cap = cv2.VideoCapture(self.camera_index)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.CAMERA_W)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_H)
         cap.set(cv2.CAP_PROP_FPS, config.CAMERA_FPS)
         if not cap.isOpened():
-            raise RuntimeError("Could not open the webcam")
-        log.info("Camera %d opened: %dx%d, reports %.0f fps", config.CAMERA_INDEX,
+            raise RuntimeError(f"Could not open camera {self.camera_index + 1}")
+        log.info("Camera %d opened: %dx%d, reports %.0f fps", self.camera_index + 1,
                  cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
                  cap.get(cv2.CAP_PROP_FPS))
 
@@ -290,7 +299,7 @@ class HandTracker:
             # (the index tip alone would jump and ruin your aim).
             cx = (landmarks[THUMB_TIP].x + landmarks[INDEX_TIP].x) / 2
             cy = (landmarks[THUMB_TIP].y + landmarks[INDEX_TIP].y) / 2
-            u, v = map_to_zone(cx, cy)
+            u, v = map_to_zone(cx, cy, self.zone)
             u, v = self._fu(u, t), self._fv(v, t)
             event = self._pinch.update(pinch_ratio(landmarks, width, height))
             with self.lock:
@@ -312,7 +321,7 @@ class HandTracker:
     def _make_preview(self, rgb, landmarks, pinched):
         pw, ph = self.PREVIEW_SIZE
         small = cv2.resize(rgb, (pw, ph))
-        left, top, right, bottom = config.ACTIVE_ZONE
+        left, top, right, bottom = self.zone
         cv2.rectangle(small, (int(left * pw), int(top * ph)),
                       (int(right * pw), int(bottom * ph)), (255, 255, 255), 1)
         if landmarks:

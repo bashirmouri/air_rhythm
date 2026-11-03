@@ -1,5 +1,4 @@
 """The main menu: Play card, setting rows, animated hit-circle preview, camera status."""
-import math
 import time
 
 import pygame
@@ -11,24 +10,12 @@ from air_rhythm.ui import widgets as ui
 from air_rhythm.ui.screens.base import ButtonScreen
 from air_rhythm.ui.screens.calibration import CalibrationScreen
 from air_rhythm.ui.screens.play import COMBO_COLORS, PlayScreen
+from air_rhythm.ui.screens.settings import SettingsScreen
 
 LEVELS = list(LEVEL_PATHS)     # menu order: Easy, Normal
 
 
 MENU_LEFT, MENU_WIDTH = 96, 460
-_menu_bg_cache = {}
-
-
-def _menu_background(w, h):
-    """Dark gradient plus two glow sprites (pink top-right, violet bottom-left). Built once."""
-    if (w, h) not in _menu_bg_cache:
-        bg = pygame.Surface((w, h))
-        for y in range(h):
-            pygame.draw.line(bg, ui.lerp_color((16, 13, 30), (6, 6, 12), y / h), (0, y), (w, y))
-        glows = [(ui.make_glow(420, (70, 22, 55)), (w - 220, 120), 0.0),
-                 (ui.make_glow(380, (36, 24, 80)), (180, h - 80), 2.0)]
-        _menu_bg_cache[(w, h)] = bg, glows
-    return _menu_bg_cache[(w, h)]
 
 
 class MenuScreen(ButtonScreen):
@@ -48,13 +35,13 @@ class MenuScreen(ButtonScreen):
             ui.OptionRow((x, 426, w, 52), "Input", self.toggle_input,
                          lambda: (["Hand", "Mouse"], "Hand" if app.input.kind == "hand" else "Mouse")),
             ui.OptionRow((x, 486, w, 52), "No-fail", self.toggle_no_fail, lambda: s["no_fail"]),
-            ui.OptionRow((x, 546, w, 52), "Calibrate offset", self.calibrate,
-                         lambda: f"{s['input_offset_ms']:+.0f} ms" if app.audio_ok else "needs sound"),
+            ui.OptionRow((x, 546, w, 52), "Settings", self.open_settings,
+                         lambda: "Sound · Timing · Camera"),
             ui.OptionRow((x, 606, w, 52), "Quit", app.quit, danger=True),
         ]
         # right side: a hit circle that keeps getting hit, as a preview of the game
         self.demo = ui.HitCircleDemo((920, 330), 92, COMBO_COLORS)
-        self.background, self.glows = _menu_background(W, H)
+        ui.menu_background(W, H)             # build it now, not on the first frame
         self.t0 = time.perf_counter()
 
     def play(self):
@@ -68,6 +55,9 @@ class MenuScreen(ButtonScreen):
         i = LEVELS.index(self.app.settings["level"])
         self.app.set_level(LEVELS[(i + 1) % len(LEVELS)])
         self._load_map_info()
+
+    def open_settings(self):
+        self.app.goto(SettingsScreen(self.app))
 
     def calibrate(self):
         if self.app.audio_ok:                # calibration is done by ear: it needs sound
@@ -85,6 +75,7 @@ class MenuScreen(ButtonScreen):
 
     def handle(self, events):
         keys = {pygame.K_RETURN: self.play, pygame.K_SPACE: self.play, pygame.K_c: self.calibrate,
+                pygame.K_s: self.open_settings,
                 pygame.K_l: self.next_level, pygame.K_m: self.toggle_music,
                 pygame.K_i: self.toggle_input, pygame.K_n: self.toggle_no_fail,
                 pygame.K_ESCAPE: self.app.quit, pygame.K_q: self.app.quit}
@@ -95,12 +86,7 @@ class MenuScreen(ButtonScreen):
 
     def draw(self, surf):
         W, H = surf.get_size()
-        t = time.perf_counter() - self.t0
-        surf.blit(self.background, (0, 0))
-        # two soft lights drifting slowly behind everything
-        for glow, (gx, gy), phase in self.glows:
-            dx, dy = 40 * math.sin(t * 0.21 + phase), 30 * math.cos(t * 0.17 + phase)
-            surf.blit(glow, glow.get_rect(center=(gx + dx, gy + dy)), special_flags=pygame.BLEND_ADD)
+        ui.draw_menu_background(surf, time.perf_counter() - self.t0)
 
         x = MENU_LEFT
         ui.label(surf, "WEBCAM RHYTHM GAME", 15, ui.ACCENT, (x + 2, 96), "midleft", "semibold", spacing=3)
@@ -114,7 +100,7 @@ class MenuScreen(ButtonScreen):
 
         kx = x
         for key, what in (("Enter", "Play"), ("L", "Level"), ("I", "Input"), ("N", "No-fail"),
-                          ("C", "Calibrate"), ("M", "Music"), ("V", "Camera"), ("F11", "Fullscreen"),
+                          ("S", "Settings"), ("M", "Music"), ("V", "Camera"), ("F11", "Fullscreen"),
                           ("Esc", "Quit")):
             kx = ui.keycap(surf, key, (kx, H - 30))
             kx = ui.label(surf, what, 14, ui.MUTED, (kx + 7, H - 30), "midleft").right + 16

@@ -85,3 +85,27 @@ def test_no_migration_in_portable_mode_or_packaged_builds(folders, monkeypatch):
     monkeypatch.setattr(config, "LEGACY_DIR", None)          # packaged build
     settings.migrate_legacy_files()
     assert not new.exists()
+
+
+def test_bad_values_are_replaced_by_defaults(settings_file, caplog):
+    settings_file.write_text(json.dumps({
+        "music_volume": 500,             # out of range
+        "hitsound_volume": 50.5,         # volumes are whole percents
+        "hand_area": "Huge",             # not one of the choices
+        "fullscreen": "yes",             # not a bool
+        "camera_index": True,            # a bool is not a camera number
+        "audio_offset_ms": 180,          # fine: an int where a float is expected
+        "pinch_sensitivity": "High",     # fine
+    }))
+    with caplog.at_level(logging.WARNING):
+        s = settings.load()
+    for key in ("music_volume", "hitsound_volume", "hand_area", "fullscreen", "camera_index"):
+        assert s[key] == settings.DEFAULTS[key], key
+    assert s["audio_offset_ms"] == 180 and s["pinch_sensitivity"] == "High"
+    assert caplog.text.count("Ignoring invalid setting") == 5
+
+
+def test_every_default_is_valid():
+    for key, value in settings.DEFAULTS.items():
+        if key != "level":               # levels are checked against the beatmaps by the app
+            assert settings.is_valid(key, value), key

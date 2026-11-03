@@ -51,16 +51,17 @@ Gameplay`), never relative.
 | `controls/hand_tracker.py` | Background thread: webcam, MediaPipe, pinch detection, One Euro filter, cursor smoothing, safe model download |
 | `controls/inputs.py` | One interface for hand and mouse, so the game doesn't care which is used |
 | **ui** | |
-| `ui/widgets.py` | Fonts, text, panels and the menu widgets (Play card, option rows, demo circle) |
+| `ui/widgets.py` | Fonts, text, panels and the menu widgets (Play card, option rows, choice and - / + rows, demo circle) |
 | `ui/screens/base.py` | Shared logic for screens made of buttons (hover, click, pinch) |
 | `ui/screens/menu.py` | Main menu |
 | `ui/screens/play.py` | Gameplay: circles, approach circles, animations, HUD, timing meter; playing / paused / countdown states |
 | `ui/screens/pause.py` | The pause card (Resume / Retry / Quit), drawn by the gameplay screen over the frozen song |
 | `ui/screens/results.py` | Results after a song |
 | `ui/screens/calibration.py` | Measures the player's input delay with a metronome |
+| `ui/screens/settings.py` | Volumes, sound and input delay, camera and hand tracking, display; changes apply live (`App.apply_settings()`) |
 | **system** | |
 | `system/config.py` | Tuning values and where files live (data folder, portable mode, packaged build) |
-| `system/settings.py` | Saved player settings; one-time migration from old versions |
+| `system/settings.py` | Saved player settings, what values are allowed; one-time migration from old versions |
 | `system/diagnostics.py` | Log file, startup facts for bug reports, the error window |
 
 A **screen** is any object with `handle(events)`, `update()` and `draw(surface)`; `app.py`

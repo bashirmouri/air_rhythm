@@ -6,6 +6,14 @@ import pygame
 MOUSE_ACTIVE_S = 2.0     # after the mouse moves, its cursor is shown instead of the hand for this long
 
 
+def activate(button, pos):
+    """Press a button. Rows with several targets (a choice, - / +) are told where."""
+    if hasattr(button, "press"):
+        button.press(pos)
+    else:
+        button.action()
+
+
 class ButtonScreen:
     """Shared logic: hover with the cursor, press (click or pinch) to activate.
     The mouse works on these screens even in hand mode, so the buttons can
@@ -23,7 +31,7 @@ class ButtonScreen:
                 self._mouse_moved_at = time.perf_counter()
                 for b in self.buttons:
                     if b.contains(e.pos):
-                        b.action()
+                        activate(b, e.pos)
                         return
 
     def cursor_override(self):
@@ -40,7 +48,7 @@ class ButtonScreen:
             sp = self.app.to_screen(pos)
             for b in self.buttons:
                 if b.contains(sp):
-                    b.action()
+                    activate(b, sp)
                     return
 
     def draw_buttons(self, surf):

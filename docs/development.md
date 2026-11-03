@@ -48,9 +48,10 @@ Both run on every push on GitHub (Windows, Linux, macOS × Python 3.12–3.15).
 | `tests/unit/test_beatmap.py` | osu! formulas (AR, CS, OD), combo numbers and colors, loading |
 | `tests/unit/test_map_gen.py` | Easy/Normal maps (deterministic, on the playfield, rhythm and jump limits), damaged files rebuilt |
 | `tests/unit/test_hand_tracker.py` | Pinch detection, filtering, cursor smoothing (with real webcam timing), safe model download |
-| `tests/unit/test_settings.py` | Defaults, corrupt files, migration from older versions |
-| `tests/unit/test_inputs.py` | Mouse clicks and Z/X as hits; pinches reaching the game; the tracker's per-frame logic (pinch, release, hand briefly lost) |
-| `tests/unit/test_screens.py` | Buttons clicked or pinched (mouse works in hand mode); calibration turning taps into an offset |
+| `tests/unit/test_settings.py` | Defaults, corrupt files, bad values replaced by defaults, migration from older versions |
+| `tests/unit/test_inputs.py` | Mouse clicks and Z/X as hits; pinches reaching the game; the tracker's per-frame logic (pinch, release, hand briefly lost); hand settings applied live |
+| `tests/unit/test_clock.py` | Song time, pause/resume, re-syncing to the music after a resume |
+| `tests/unit/test_screens.py` | Buttons clicked or pinched (mouse works in hand mode); calibration turning taps into an offset; pause menu; settings screen (- / +, choices, menu music off); sound delay in gameplay |
 | `tests/unit/test_architecture.py` | The layer rules in [architecture.md](architecture.md) |
 | `tests/integration/test_packaged_build.py` | File locations in the packaged build vs. from source |
 | `tests/integration/test_startup.py` | Whole game: first start, no sound device, broken map, crash window, offline |
@@ -58,8 +59,14 @@ Both run on every push on GitHub (Windows, Linux, macOS × Python 3.12–3.15).
 
 ## Tuning (`src/air_rhythm/system/config.py`)
 
+Players change pinch sensitivity, cursor smoothing, the hand area, camera, volumes and
+offsets on the **Settings** screen. Its choices are defined in `config.py`
+(`PINCH_SENSITIVITY`, `CURSOR_SMOOTHINGS`, `HAND_AREAS`; "Medium" = the values below), and
+the allowed ranges of saved settings in `system/settings.py` (`CHOICES`, `RANGES`).
+
 - **Pinch fires too easily / not at all:** `PINCH_CLOSE` and `PINCH_OPEN`.
-- **Cursor shaky:** lower `FILTER_MIN_CUTOFF`. **Cursor lags on jumps:** raise `FILTER_BETA`.
+- **Cursor shaky:** lower `FILTER_MIN_CUTOFF`. **Cursor lags on jumps:** raise `FILTER_BETA`
+  (not on the Settings screen: these need care).
 - **Cursor choppy:** raise `CURSOR_SMOOTHING_MS` (smoother, but trails your hand more).
   **Cursor feels late:** lower it (`0` = raw camera positions).
 - **Too much arm movement:** shrink `ACTIVE_ZONE` (the white box in the camera view).

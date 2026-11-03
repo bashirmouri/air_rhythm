@@ -87,6 +87,19 @@ def label(surf, s, size, color, pos, anchor="center", weight="regular", alpha=25
     return rect
 
 
+def wrap(s, size, width, weight="regular"):
+    """Split text into lines that fit `width` pixels in the UI font."""
+    f, lines, line = sans(size, weight), [], ""
+    for word in s.split():
+        candidate = f"{line} {word}".strip()
+        if line and f.size(candidate)[0] > width:
+            lines.append(line)
+            line = word
+        else:
+            line = candidate
+    return [*lines, line] if line else lines
+
+
 def lerp_color(a, b, f):
     f = min(max(f, 0.0), 1.0)
     return tuple(int(a[i] + (b[i] - a[i]) * f) for i in range(3))
@@ -264,21 +277,108 @@ class OptionRow(_Animated):
             disc(surf, WHITE, (knob_x, y), 9)
         elif isinstance(value, tuple):      # segmented control
             options, selected = value
-            imgs = [render(o, 16, WHITE if o == selected else MUTED, "semibold") for o in options]
-            widths = [img.get_width() + 24 for img in imgs]
-            outer = pygame.Rect(0, 0, sum(widths) + 6, 30)
-            outer.midright = (x, y)
+            outer, segments = _segments(options, right_mid)
             panel(surf, outer, (0, 0, 0, 70), (255, 255, 255, 25), radius=15)
-            sx = outer.x + 3
-            for o, img, w in zip(options, imgs, widths, strict=True):
-                seg = pygame.Rect(sx, outer.y + 3, w, outer.height - 6)
+            for o, seg in zip(options, segments, strict=True):
                 if o == selected:
                     pygame.draw.rect(surf, ACCENT, seg, border_radius=12)
+                img = render(o, 16, WHITE if o == selected else MUTED, "semibold")
                 surf.blit(img, img.get_rect(center=seg.center))
-                sx += w
         else:                               # text with a chevron
             right = label(surf, "›", 26, MUTED, (x, y - 2), "midright")
             label(surf, str(value), 17, DIM, (right.x - 10, y), "midright", "semibold")
+
+
+def _segments(options, right_mid):
+    """Where a segmented control's outline and each option's segment go (right-aligned).
+    Widths come from the selected-color text, so they don't change with the selection."""
+    widths = [render(o, 16, WHITE, "semibold").get_width() + 24 for o in options]
+    outer = pygame.Rect(0, 0, sum(widths) + 6, 30)
+    outer.midright = right_mid
+    segments, sx = [], outer.x + 3
+    for w in widths:
+        segments.append(pygame.Rect(sx, outer.y + 3, w, outer.height - 6))
+        sx += w
+    return outer, segments
+
+
+class ChoiceRow(OptionRow):
+    """A row with a segmented control you can press directly: pressing an option picks it,
+    pressing elsewhere on the row picks the next one. get() / set_(option) read and change it."""
+
+    def __init__(self, rect, text_, options, get, set_):
+        self.options, self.get, self.set = list(options), get, set_
+        super().__init__(rect, text_, self.next_option, lambda: (self.options, self.get()))
+
+    def next_option(self):
+        i = self.options.index(self.get()) if self.get() in self.options else -1
+        self.set(self.options[(i + 1) % len(self.options)])
+
+    def press(self, pos):
+        _, segments = _segments(self.options, (self.rect.right - 16, self.rect.centery))
+        for option, seg in zip(self.options, segments, strict=True):
+            if seg.inflate(4, 14).collidepoint(pos):     # a little extra room for aiming by hand
+                self.set(option)
+                return
+        self.next_option()
+
+
+class StepperRow(OptionRow):
+    """A row with  [-]  value  [+]  on the right. `text_value()` is what is shown."""
+    BOX_W, BOX_H, VALUE_W = 40, 32, 96
+
+    def __init__(self, rect, text_, text_value, decrease, increase):
+        super().__init__(rect, text_, increase)
+        self.text_value, self.decrease, self.increase = text_value, decrease, increase
+
+    def boxes(self):
+        plus = pygame.Rect(0, 0, self.BOX_W, self.BOX_H)
+        plus.midright = (self.rect.right - 12, self.rect.centery)
+        minus = plus.move(-(self.BOX_W + self.VALUE_W), 0)
+        return minus, plus
+
+    def press(self, pos):
+        """Left half of the stepper (or anything left of it) decreases, right half increases."""
+        minus, plus = self.boxes()
+        (self.decrease if pos[0] < (minus.right + plus.x) / 2 else self.increase)()
+
+    def draw(self, surf, hovered):
+        super().draw(surf, hovered)
+        minus, plus = self.boxes()
+        for box, sign in ((minus, "\u2212"), (plus, "+")):
+            panel(surf, box, (255, 255, 255, 18), (255, 255, 255, 50), radius=10)
+            label(surf, sign, 22, WHITE, (box.centerx, box.centery - 1), "center", "semibold")
+        label(surf, self.text_value(), 17, WHITE, ((minus.right + plus.x) // 2, self.rect.centery),
+              "center", "semibold")
+
+
+def section(surf, title, pos):
+    """Small spaced capitals that head a group of rows (e.g. AUDIO)."""
+    label(surf, title, 13, ACCENT, pos, "midleft", "semibold", spacing=3)
+
+
+_menu_bg_cache = {}
+
+
+def menu_background(w, h):
+    """Dark gradient plus two glow sprites (pink top-right, violet bottom-left). Built once."""
+    if (w, h) not in _menu_bg_cache:
+        bg = pygame.Surface((w, h))
+        for y in range(h):
+            pygame.draw.line(bg, lerp_color((16, 13, 30), (6, 6, 12), y / h), (0, y), (w, y))
+        glows = [(make_glow(420, (70, 22, 55)), (w - 220, 120), 0.0),
+                 (make_glow(380, (36, 24, 80)), (180, h - 80), 2.0)]
+        _menu_bg_cache[(w, h)] = bg, glows
+    return _menu_bg_cache[(w, h)]
+
+
+def draw_menu_background(surf, t):
+    """The menu background with its two soft lights drifting slowly (t = seconds)."""
+    bg, glows = menu_background(*surf.get_size())
+    surf.blit(bg, (0, 0))
+    for glow, (gx, gy), phase in glows:
+        dx, dy = 40 * math.sin(t * 0.21 + phase), 30 * math.cos(t * 0.17 + phase)
+        surf.blit(glow, glow.get_rect(center=(gx + dx, gy + dy)), special_flags=pygame.BLEND_ADD)
 
 
 class HitCircleDemo:

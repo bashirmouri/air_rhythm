@@ -74,6 +74,14 @@ class PlayScreen:
         self._badge = None
         self.clock = SongClock()
         self.clock.start(self.bm.audio_path, self.bm.lead_in_ms)
+        if self.clock.audio:
+            pygame.mixer.music.set_volume(app.settings["music_volume"] / 100)
+
+    def song_ms(self, t=None):
+        """Where the song is *as the player hears it*: the clock minus the sound output delay
+        (Bluetooth headphones play everything ~200 ms late). Circles are drawn and judged on
+        this time, so they line up with what you hear."""
+        return self.clock.now_ms(t) - self.app.settings["audio_offset_ms"]
 
     def sprite(self, color, number):
         key = (color % len(COMBO_COLORS), number)
@@ -89,7 +97,7 @@ class PlayScreen:
 
     def cursor_down_override(self):
         if self.autoplay and self.state == "playing":
-            return self.clock.now_ms() < self._auto_down_until
+            return self.song_ms() < self._auto_down_until
         return None
 
     # ------------------------------------------------------------- pause
@@ -140,12 +148,12 @@ class PlayScreen:
         if self.state == "countdown" and self._countdown_running():
             return
         self.clock.update()
-        now = self.clock.now_ms()
+        now = self.song_ms()
         offset = self.app.settings["input_offset_ms"]
         for t, pos in self.app.input.take_presses():
             if pos is not None and not self.autoplay and t >= self._resumed_at:
                 # subtract the calibrated delay so a pinch seen late still counts on time
-                self.game.press(self.clock.now_ms(t) - offset, pos)
+                self.game.press(self.song_ms(t) - offset, pos)
         if self.autoplay:
             self._autoplay(now)
         self.game.update(now)
@@ -183,7 +191,7 @@ class PlayScreen:
     # ------------------------------------------------------------- drawing
     def draw(self, surf, now=None):
         if now is None:
-            now = self.clock.now_ms()
+            now = self.song_ms()
         surf.blit(self.app.background, (0, 0))
         self._draw_beat_pulse(surf, now)
         self.overlay.fill((0, 0, 0, 0))       # approach circles: drawn here, blended on top below

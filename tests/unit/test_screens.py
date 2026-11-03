@@ -7,9 +7,10 @@ import pytest
 
 from air_rhythm.content.audio_gen import CALIB_COUNT_IN, CALIB_TAPS
 from air_rhythm.core.playfield import Playfield
-from air_rhythm.system import config
+from air_rhythm.system import config, settings
 from air_rhythm.ui import widgets as ui
 from air_rhythm.ui.screens import base, calibration, menu
+from air_rhythm.ui.screens import settings as settings_screen
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -37,7 +38,7 @@ class FakeApp:
     def __init__(self, kind="hand", cursor=(256, 192)):
         self.input = FakeInput(kind, cursor)
         self.playfield = Playfield(config.WINDOW_W, config.WINDOW_H)
-        self.settings = {"input_offset_ms": 0.0}
+        self.settings = dict(settings.DEFAULTS)
         self.went_to = None
 
     def to_screen(self, pos):
@@ -298,3 +299,125 @@ def test_mouse_works_on_the_pause_card_in_hand_mode(song):
     resume = s.pause_menu.buttons[0]
     s.handle([mouse(pygame.MOUSEBUTTONDOWN, resume.rect.center)])
     assert s.state == "countdown"
+
+
+def test_calibration_leaves_the_sound_delay_out_of_the_input_delay(calib):
+    app, s = calib
+    app.settings["audio_offset_ms"] = 30.0          # e.g. Bluetooth headphones, set in Settings
+    tap_beats(s, [40] * CALIB_TAPS)                 # taps measured 40 ms late in total
+    finish(s)
+    assert s.result == 10                           # 30 of those 40 ms are the sound
+
+
+def test_calibration_can_return_to_another_screen(calib):
+    app, s = calib
+    s._back = lambda: "settings"
+    s.handle([key(pygame.K_ESCAPE)])
+    assert app.went_to == "settings"
+
+
+# ---------------------------------------------------------------- sound delay in gameplay
+def test_sound_delay_moves_the_beat_to_when_it_is_heard(song):
+    app, s, fake = song
+    app.settings["audio_offset_ms"] = 100.0         # sound comes out 100 ms late
+    first = s.bm.objects[0]
+    play_until(s, fake, first.time + 100)           # clock: 100 ms past the circle ...
+    assert s.song_ms() == pytest.approx(first.time, abs=1e-6)   # ... which is when it is heard
+    app.input.presses = [(fake.now, (first.x, first.y))]
+    s.update()
+    assert s.game.results[0] == 300                 # pinching on the heard beat is perfect
+
+
+# ---------------------------------------------------------------- settings screen
+class SettingsApp(PlayApp):
+    def __init__(self, kind="mouse"):
+        super().__init__(kind)
+        self.audio_ok, self.applied = True, 0
+        self.input.preview_surface = lambda: None
+        self.input.status_text = lambda: None
+
+    def apply_settings(self):
+        self.applied += 1
+
+
+@pytest.fixture
+def screen(monkeypatch):
+    monkeypatch.setattr(menu, "MenuScreen", lambda app: "menu")
+    app = SettingsApp()
+    s = settings_screen.SettingsScreen(app)
+    s.draw(app.surface)                             # everything draws
+    return app, s
+
+
+def row(s, text):
+    return next(b for b in s.buttons if b.text == text)
+
+
+def pinch_at(app, s, screen_pos):
+    app.input.presses = [(0.0, app.playfield.to_osu(*screen_pos))]
+    s.update()
+
+
+def test_plus_and_minus_by_pinch(screen):
+    app, s = screen
+    song = row(s, "Song")
+    minus, plus = song.boxes()
+    pinch_at(app, s, minus.center)
+    assert app.settings["music_volume"] == 90 and app.applied == 1
+    pinch_at(app, s, plus.center)
+    pinch_at(app, s, plus.center)                   # can't go past 100 %
+    assert app.settings["music_volume"] == 100
+
+
+def test_offsets_step_by_5_ms(screen):
+    app, s = screen
+    _, plus = row(s, "Sound delay").boxes()
+    pinch_at(app, s, plus.center)
+    assert app.settings["audio_offset_ms"] == 5.0
+
+
+def test_pressing_a_choice_picks_it_directly(screen):
+    app, s = screen
+    area = row(s, "Hand area")
+    _, segments = ui._segments(area.options, (area.rect.right - 16, area.rect.centery))
+    pinch_at(app, s, segments[0].center)            # "Small" (from Medium: not simply the next one)
+    assert app.settings["hand_area"] == "Small"
+    pinch_at(app, s, (area.rect.x + 40, area.rect.centery))     # on the label: next one
+    assert app.settings["hand_area"] == "Medium"
+
+
+def test_mouse_click_works_on_settings_in_hand_mode(screen):
+    app, s = screen
+    app.input.kind = "hand"
+    _, segments = ui._segments([str(i + 1) for i in range(config.CAMERA_COUNT)],
+                               (row(s, "Camera").rect.right - 16, row(s, "Camera").rect.centery))
+    s.handle([mouse(pygame.MOUSEBUTTONDOWN, segments[3].center)])     # camera 4
+    assert app.settings["camera_index"] == 3
+
+
+def test_menu_music_turns_off_below_the_lowest_step_and_back_on(screen):
+    app, s = screen
+    music = row(s, "Menu music")
+    minus, plus = music.boxes()
+    app.settings["menu_music_volume"] = 10
+    pinch_at(app, s, minus.center)
+    assert app.settings["menu_music"] is False and music.text_value() == "Off"
+    pinch_at(app, s, plus.center)
+    assert app.settings["menu_music"] is True and music.text_value() == "10%"
+
+
+def test_toggles_and_leaving(screen):
+    app, s = screen
+    pinch_at(app, s, row(s, "Show FPS").rect.center)
+    assert app.settings["show_fps"] is True
+    s.handle([key(pygame.K_ESCAPE)])
+    assert app.went_to == "menu"
+
+
+def test_measuring_input_delay_comes_back_to_settings(screen, assets):
+    app, s = screen
+    pinch_at(app, s, row(s, "Measure input delay").rect.center)
+    calib_screen = app.went_to
+    assert isinstance(calib_screen, calibration.CalibrationScreen)
+    calib_screen.handle([key(pygame.K_ESCAPE)])
+    assert isinstance(app.went_to, settings_screen.SettingsScreen)

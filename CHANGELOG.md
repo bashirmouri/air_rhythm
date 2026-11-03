@@ -7,6 +7,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 ## [Unreleased]
 
 ### Added
+- **Settings screen** (Settings in the menu, or S), with a large live camera view:
+  - **Audio:** song, hitsound and menu music volume (menu music can be turned off).
+  - **Timing:** a separate **sound delay** for Bluetooth headphones (they play sound
+    ~150-250 ms late) next to the input delay, and *Measure input delay* (calibration, which
+    now leaves the sound delay out of what it measures). Circles are drawn and judged on the
+    song as you hear it, so with the sound delay set they line up with the music.
+  - **Camera & hand:** which camera (1-4), hand area (Small / Medium / Large: how much arm
+    movement covers the playfield), pinch sensitivity and cursor smoothing. Hand settings
+    take effect immediately, without restarting the camera; switching camera restarts it,
+    and a camera that doesn't exist shows a clear message instead of failing.
+  - **Display:** fullscreen (also F11, now remembered), camera view in game, FPS counter.
+  - Everything works by pinch or click; options are picked directly (no cycling), and
+    volumes and delays have - / + buttons. Changes apply right away and are saved on exit.
+  - Saved values are checked when loading: anything out of range or unknown (a hand-edited
+    `settings.json`, or one from a newer version) falls back to the default with a log entry.
+- The menu's *Calibrate offset* row is now **Settings**; calibration lives inside it
+  (C still opens it from the menu).
 - **Pause menu.** Esc during a song now pauses instead of quitting: **Resume**, **Retry** or
   **Quit to menu**, by pinch, click or key (Esc / Enter / Space resume, R retry, Q quit). The
   mouse works on it in hand mode too. The song also pauses by itself when the window loses

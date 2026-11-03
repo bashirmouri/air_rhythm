@@ -1,9 +1,9 @@
-"""Smoke test: the whole game, headless, through every screen. Autoplay plays a full map
-at 25x speed and must get a perfect score."""
+"""Smoke test: the whole game, headless, through every screen (changing a few settings on
+the way). Autoplay plays a full map at 25x speed and must get a perfect score."""
 from conftest import run_game
 
 PLAY_THROUGH = """
-import time, argparse
+import time, argparse, pygame
 import air_rhythm.core.clock as clock
 import air_rhythm.app as main
 from air_rhythm.ui.screens.menu import MenuScreen
@@ -32,9 +32,13 @@ def frames(n=10):
 frames()
 app.screen.calibrate(); frames()
 app.screen.clock.stop(); app.goto(MenuScreen(app)); frames()
+app.screen.open_settings(); frames()
+app.screen._set("music_volume", 40); app.screen._set("hand_area", "Large"); frames()
+app.screen.back(); frames()
 for level in ("Easy", "Normal"):
     app.set_level(level)
     app.screen.play()
+    print(f"MUSIC VOLUME {pygame.mixer.music.get_volume():.1f}")    # the dummy sound driver has a mixer
     end = time.perf_counter() + 20
     while not isinstance(app.screen, ResultsScreen) and time.perf_counter() < end:
         frames(1)
@@ -50,4 +54,5 @@ def test_every_screen_and_perfect_autoplay(tmp_path):
     assert code == 0, out[-15:]
     assert "RESULT Easy: {300: 60, 100: 0, 50: 0, 0: 0} grade SS failed False" in out, out[-15:]
     assert "RESULT Normal: {300: 128, 100: 0, 50: 0, 0: 0} grade SS failed False" in out, out[-15:]
-    assert "SCREENS: MenuScreen -> CalibrationScreen -> PlayScreen -> ResultsScreen" in out
+    assert "SCREENS: MenuScreen -> CalibrationScreen -> SettingsScreen -> PlayScreen -> ResultsScreen" in out
+    assert out.count("MUSIC VOLUME 0.4") == 2                          # the songs use the volume setting
