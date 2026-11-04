@@ -217,3 +217,70 @@ def test_pinned_model_url_and_checksum():
     # "latest" could change under us and break the checksum; version 1 never changes
     assert "/float16/1/" in hand_tracker.MODEL_URL
     assert len(hand_tracker.MODEL_SHA256) == 64
+
+
+# ---------------------------------------------------------------- tracking hints
+def camera(q, seconds, fps=30, brightness=120, start=100.0):
+    """Feeds `seconds` of camera frames into a TrackingQuality; returns the end time."""
+    t = start
+    for _ in range(int(seconds * fps)):
+        t += 1 / fps
+        q.frame(t, brightness)
+    return t
+
+
+def test_no_hint_while_the_camera_warms_up():
+    q = hand_tracker.TrackingQuality()
+    now = camera(q, config.HINT_WARMUP_S - 0.5, fps=5, brightness=5)     # dark and slow, but early
+    assert q.hint(now) is None
+
+
+def test_good_camera_gets_no_hint():
+    q = hand_tracker.TrackingQuality()
+    now = camera(q, 5)
+    assert q.hint(now) is None and abs(q.fps(now) - 30) <= 1
+
+
+def test_too_dark():
+    q = hand_tracker.TrackingQuality()
+    now = camera(q, 5, brightness=12)                    # measured in a dark room at night
+    assert "Too dark" in q.hint(now)
+
+
+def test_slow_camera():
+    q = hand_tracker.TrackingQuality()
+    now = camera(q, 5, fps=12)
+    assert q.hint(now).startswith("Camera is slow (1")         # 12 fps, give or take the edge frame
+    assert abs(q.fps(now) - 12) <= 1
+
+
+def test_one_bright_frame_does_not_hide_a_dark_room():
+    q = hand_tracker.TrackingQuality()
+    now = camera(q, 5, brightness=12)
+    q.frame(now + 0.03, 255)                             # e.g. a flash, or a screen lighting up
+    assert "Too dark" in q.hint(now + 0.03)
+
+
+def test_hand_lost_often_is_a_hint_only_where_asked_and_only_recently():
+    q = hand_tracker.TrackingQuality()
+    now = camera(q, 5)
+    for k in range(3):
+        q.hand_lost(now - 6 + k)
+    assert "Hand keeps getting lost" in q.hint(now)
+    assert q.hint(now, include_losses=False) is None     # menus: lowering the hand is normal
+    later = camera(q, 6, start=now)                      # ...and 6 s later the first losses are old
+    assert q.hint(later) is None
+
+
+def test_a_loss_is_counted_when_a_seen_hand_disappears_for_real():
+    from types import SimpleNamespace as P
+    hand = [P(x=0.5, y=0.5) for _ in range(21)]
+    hand[hand_tracker.WRIST], hand[hand_tracker.MIDDLE_MCP] = P(x=0.5, y=0.6), P(x=0.5, y=0.4)
+    tr = hand_tracker.HandTracker()
+    tr._on_frame(None, 640, 480, t=0.0)                  # no hand yet: not a loss
+    tr._on_frame(hand, 640, 480, t=1.0)
+    tr._on_frame(None, 640, 480, t=1.05)                 # within the grace time: not a loss
+    tr._on_frame(hand, 640, 480, t=1.1)
+    tr._on_frame(None, 640, 480, t=1.4)                  # gone: one loss
+    tr._on_frame(None, 640, 480, t=1.5)                  # still gone: still one
+    assert len(tr.quality._losses) == 1

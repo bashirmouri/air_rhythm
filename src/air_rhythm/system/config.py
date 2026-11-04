@@ -99,6 +99,12 @@ FILTER_D_CUTOFF = 1.0
 # moves evenly even though webcams deliver frames unevenly. Higher = smoother but trails
 # your hand more; 0 = raw (choppy). Hits always use the exact, undelayed position.
 CURSOR_SMOOTHING_MS = 60
+# Tracking hints ("Too dark", "Camera is slow", ...) shown when tracking is likely to suffer.
+HINT_WARMUP_S = 3.0         # cameras start dark and slow: judge only after this
+DARK_BRIGHTNESS = 45        # average camera image brightness (0-255) below which it's too dark
+DIM_BRIGHTNESS = 70         # below this the setup guide says "a bit dark"
+SLOW_CAMERA_FPS = 20        # tracking gets jumpy below this
+LOST_HAND_HINT = (3, 10.0)  # hand lost this many times within this many seconds
 
 
 # ---------------------------------------------------------------- player choices (Settings screen)

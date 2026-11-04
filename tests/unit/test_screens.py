@@ -9,7 +9,7 @@ from air_rhythm.content.audio_gen import CALIB_COUNT_IN, CALIB_TAPS
 from air_rhythm.core.playfield import Playfield
 from air_rhythm.system import config, settings
 from air_rhythm.ui import widgets as ui
-from air_rhythm.ui.screens import base, calibration, menu
+from air_rhythm.ui.screens import base, calibration, menu, onboarding
 from air_rhythm.ui.screens import settings as settings_screen
 
 
@@ -421,3 +421,93 @@ def test_measuring_input_delay_comes_back_to_settings(screen, assets):
     assert isinstance(calib_screen, calibration.CalibrationScreen)
     calib_screen.handle([key(pygame.K_ESCAPE)])
     assert isinstance(app.went_to, settings_screen.SettingsScreen)
+
+
+# ---------------------------------------------------------------- setup guide
+def stats(**changes):
+    s = {"ready": True, "error": None, "hand": True, "warm": True, "fps": 30, "brightness": 120.0}
+    return {**s, **changes}
+
+
+def states(items):
+    return [state for state, _ in items]
+
+
+def test_checklist_all_good():
+    items = onboarding.camera_checklist(stats(), "hand")
+    assert states(items) == ["ok", "ok", "ok"]
+    assert items[0][1] == "Camera on (30 fps)"
+
+
+def test_checklist_problems():
+    check = onboarding.camera_checklist
+    assert states(check(stats(brightness=12.0), "hand"))[1] == "bad"           # too dark
+    assert states(check(stats(brightness=60.0), "hand"))[1] == "warn"          # a bit dark
+    assert states(check(stats(fps=12), "hand"))[0] == "warn"                   # slow camera
+    assert states(check(stats(hand=False), "hand"))[2] == "wait"               # raise your hand
+    assert check(stats(error="Could not open camera 1"), "hand") == [("bad", "Could not open camera 1")]
+    assert states(check(stats(warm=False), "hand"))[:2] == ["wait", "wait"]   # still measuring
+    assert states(check(None, "mouse")) == ["wait"]
+
+
+class GuideApp(SettingsApp):
+    def __init__(self, kind="hand"):
+        super().__init__(kind)
+        self.input.camera_stats = lambda: stats()
+        self.modes = []
+
+    def set_input_mode(self, mode):
+        self.modes.append(mode)
+        self.input.kind = mode
+
+
+@pytest.fixture
+def guide(monkeypatch):
+    monkeypatch.setattr(menu, "MenuScreen", lambda app: "menu")
+    app = GuideApp()
+    s = onboarding.OnboardingScreen(app)
+    s.draw(app.surface)
+    return app, s
+
+
+def test_guide_steps_through_by_pinch(guide, assets):
+    app, s = guide
+    pinch_at(app, s, s.buttons[0].rect.center)          # Next
+    assert s.step == "pinch"
+    s.draw(app.surface)
+    assert s.buttons[0].text == "Skip this step"
+    pinch_at(app, s, (40, 40))                           # off the circle: a miss, no hit
+    assert s.hits == 0 and s.feedback[0] == "miss"
+    for i in range(len(onboarding.TARGETS)):
+        pinch_at(app, s, s.target_center(i))
+        s.draw(app.surface)
+    assert s.hits == 3 and s.buttons[0].text == "Next"
+    pinch_at(app, s, s.buttons[0].rect.center)
+    assert s.step == "delay"
+    s.draw(app.surface)
+    pinch_at(app, s, s.buttons[0].rect.center)          # Measure now
+    assert isinstance(app.went_to, calibration.CalibrationScreen)
+    assert app.settings["setup_done"] is True
+    app.went_to.clock.stop()
+
+
+def test_skipping_marks_the_guide_done(guide):
+    app, s = guide
+    s.handle([key(pygame.K_ESCAPE)])
+    assert app.went_to == "menu" and app.settings["setup_done"] is True
+
+
+def test_choosing_the_mouse_leaves_the_guide(guide):
+    app, s = guide
+    s.handle([key(pygame.K_m)])
+    assert app.modes == ["mouse"] and app.went_to == "menu" and app.settings["setup_done"]
+
+
+def test_guide_without_sound_just_finishes(guide):
+    app, s = guide
+    app.audio_ok = False
+    s.step = "delay"
+    s._build_buttons()
+    assert [b.text for b in s.buttons] == ["Finish"]
+    s.handle([key(pygame.K_RETURN)])
+    assert app.went_to == "menu"

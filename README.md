@@ -16,10 +16,11 @@ Windows may show a SmartScreen warning because the game isn't code-signed: click
 **To update:** download the new zip and replace the old folder. Your settings and
 calibration are kept (see [Where files are saved](#where-files-are-saved)).
 
-**First thing to do:** open **Settings** and pick *Measure input delay*. Webcams add 50-150 ms
-of delay; calibration measures it and the game subtracts it from every hit. Playing on
-**Bluetooth headphones**? Set *Sound delay* first (they play sound ~150-250 ms late), then
-measure the input delay.
+**First start:** a short setup guide checks your camera and light, lets you try a pinch on
+three circles, and measures your input delay (webcams add 50-150 ms; the game subtracts it
+from every hit). You can skip it, and run it again any time from **Settings** > *Setup guide*.
+Playing on **Bluetooth headphones**? Set *Sound delay* in Settings first (they play sound
+~150-250 ms late), then *Measure input delay*.
 
 **Settings** also has the volumes, which camera to use, the size of the hand area (smaller =
 less arm movement), how loose a pinch can be, cursor smoothing, fullscreen and an FPS counter.
@@ -47,7 +48,9 @@ and are saved when you close the game.
 bigger circles, looser timing) and **Normal** (128 circles that follow the melody).
 
 **Tracking tips:** a bright, even light on your hand makes tracking far more stable. Keep your
-hand inside the white box in the camera view (press **V** to show it).
+hand inside the white box in the camera view (press **V** to show it). The game tells you when
+something is likely to hurt tracking: a dark room, a slow camera, or a hand that keeps getting
+lost. Look for the orange line at the top of the screen (or in the menu's top-right corner).
 
 ## Where files are saved
 

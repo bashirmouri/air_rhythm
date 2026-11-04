@@ -43,7 +43,7 @@ def main():
         "no unexpected error": "Unexpected error" not in log and "Startup failed" not in log,
         "bundled window icon found": "Window icon not found" not in log,
         "hand tracker loaded (camera opened, or only the camera is missing)":
-            "Camera 0 opened" in log or "Could not open the webcam" in log,
+            "Camera 1 opened" in log or "Could not open camera 1" in log,
     }
     for name, ok in checks.items():
         print(f"{'PASS' if ok else 'FAIL'}  {name}")

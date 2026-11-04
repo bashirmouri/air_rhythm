@@ -339,6 +339,10 @@ class PlayScreen:
             status = self.app.input.status_text()
             if status:
                 ui.text(surf, status, 34, (255, 190, 120), (W // 2, 30))
+            elif self.state == "playing":
+                hint = self.app.input.hint()          # e.g. too dark, slow camera, hand often lost
+                if hint:
+                    ui.label(surf, hint, 17, ui.WARN, (W // 2, 30), "center", "semibold")
 
     def _draw_error_meter(self, surf, now):
         """Timing bar at the bottom: each tick is one hit. Left = early, right = late."""

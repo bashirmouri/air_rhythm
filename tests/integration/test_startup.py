@@ -125,3 +125,30 @@ def test_offline_hand_mode_explains_in_the_menu(tmp_path):
     status = next((line for line in out if line.startswith("STATUS:")), out[-5:])
     assert "Couldn't download the hand-tracking model (no internet?)" in status
     assert "Camera problem" not in status
+
+
+FIRST_SCREEN = f"""
+    import argparse
+    import air_rhythm.controls.hand_tracker as hand_tracker
+    import air_rhythm.app as main
+    hand_tracker.MODEL_URL = {UNREACHABLE_URL!r}              # no camera or download needed
+    import sys
+    app = main.App(argparse.Namespace(mouse="--mouse" in sys.argv, autoplay=False, map=None))
+    print("FIRST SCREEN:", type(app.screen).__name__)
+    app.input.close()
+"""
+
+
+def first_screen(data_dir, args=()):
+    code, out = run_game(FIRST_SCREEN, data_dir, args=list(args))
+    assert code == 0, out[-10:]
+    return next(line for line in out if line.startswith("FIRST SCREEN:")).split(": ")[1]
+
+
+def test_setup_guide_only_on_a_new_players_first_start(tmp_path):
+    assert first_screen(tmp_path / "new") == "OnboardingScreen"
+    assert first_screen(tmp_path / "new_mouse", ["--mouse"]) == "MenuScreen"     # nothing to set up
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    (existing / "settings.json").write_text('{"input_offset_ms": 40.0}')    # from an older version
+    assert first_screen(existing) == "MenuScreen"

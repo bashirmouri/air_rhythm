@@ -26,6 +26,7 @@ DEFAULTS = {
     "cursor_smoothing": "Medium",     # keys of config.CURSOR_SMOOTHINGS
     "fullscreen": False,
     "show_fps": False,
+    "setup_done": False,      # the setup guide was finished or skipped
 }
 # Allowed values; anything else in settings.json (edited by hand, or from a newer version) is
 # replaced by the default, so a bad value can never break the game.
@@ -83,6 +84,8 @@ def load():
             data = json.load(f)
         if not isinstance(data, dict):
             raise ValueError("settings.json does not contain an object")
+        # Saved by a version before the setup guide: this player has set up already.
+        settings["setup_done"] = True
         for key, value in data.items():
             if key not in DEFAULTS:
                 continue

@@ -5,6 +5,8 @@ mouse are interchangeable:
   take_presses()  -> list of (perf_counter time, (x, y)) since the last call
   status_text()   -> a message to show the player, or None
   apply(settings) -> use changed settings now; False if the input must be recreated
+  hint()          -> advice when tracking is likely to suffer (too dark, slow camera...), or None
+  camera_stats()  -> what the setup guide shows (camera on, fps, light, hand), or None
 """
 import time
 
@@ -55,6 +57,12 @@ class MouseInput:
 
     def apply(self, settings):
         return True                 # no mouse settings yet
+
+    def hint(self, include_losses=True):
+        return None
+
+    def camera_stats(self):
+        return None
 
     def close(self):
         pass
@@ -112,6 +120,18 @@ class HandInput:
     def take_presses(self):
         presses, self._presses = self._presses, []
         return presses
+
+    def hint(self, include_losses=True):
+        tr = self.tracker
+        if tr.error or not tr.ready:
+            return None
+        return tr.quality.hint(time.perf_counter(), include_losses)
+
+    def camera_stats(self):
+        tr, now = self.tracker, time.perf_counter()
+        warm = tr.quality.started is not None and now - tr.quality.started >= config.HINT_WARMUP_S
+        return {"ready": tr.ready, "error": tr.error, "hand": tr.visible, "warm": warm,
+                "fps": tr.quality.fps(now), "brightness": tr.quality.brightness}
 
     def status_text(self):
         tr = self.tracker

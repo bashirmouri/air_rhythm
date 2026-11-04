@@ -86,8 +86,10 @@ class App:
         self.set_input_mode(self.settings["input_mode"])
 
         from air_rhythm.ui.screens.menu import MenuScreen
+        from air_rhythm.ui.screens.onboarding import OnboardingScreen
         self.screen = None
-        self.goto(MenuScreen(self))
+        first_start = not self.settings["setup_done"] and self.input.kind == "hand" and not args.autoplay
+        self.goto(OnboardingScreen(self) if first_start else MenuScreen(self))
         self.apply_settings()                # volumes, fullscreen
         self.screen.draw(self.surface)      # warm-up: loads fonts and glyphs before the first shown frame
         self.running = True

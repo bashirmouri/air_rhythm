@@ -109,3 +109,11 @@ def test_every_default_is_valid():
     for key, value in settings.DEFAULTS.items():
         if key != "level":               # levels are checked against the beatmaps by the app
             assert settings.is_valid(key, value), key
+
+
+def test_new_players_get_the_setup_guide_and_existing_ones_do_not(settings_file):
+    assert settings.load()["setup_done"] is False                    # first start: no file
+    settings_file.write_text(json.dumps({"input_offset_ms": 40.0}))  # saved by an older version
+    assert settings.load()["setup_done"] is True
+    settings_file.write_text(json.dumps({"setup_done": False}))      # quit during the guide
+    assert settings.load()["setup_done"] is False

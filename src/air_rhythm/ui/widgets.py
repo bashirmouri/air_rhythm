@@ -244,9 +244,9 @@ class OptionRow(_Animated):
       bool                   -> on/off switch
       (options, selected)    -> segmented control, selected one highlighted"""
 
-    def __init__(self, rect, text_, action, value=None, danger=False):
+    def __init__(self, rect, text_, action, value=None, danger=False, primary=False):
         self.rect, self.text, self.action, self.value = pygame.Rect(rect), text_, action, value
-        self.danger = danger
+        self.danger, self.primary = danger, primary   # primary: the suggested next step, in pink
 
     def contains(self, pos):
         return pos is not None and self.rect.collidepoint(pos)
@@ -254,7 +254,10 @@ class OptionRow(_Animated):
     def draw(self, surf, hovered):
         h = self.ease(hovered)
         r = self.rect
-        panel(surf, r, (255, 255, 255, int(10 + 16 * h)), (255, 255, 255, int(22 + 40 * h)), radius=14)
+        if self.primary:
+            panel(surf, r, (*ACCENT, int(60 + 50 * h)), (*ACCENT, int(150 + 80 * h)), radius=14)
+        else:
+            panel(surf, r, (255, 255, 255, int(10 + 16 * h)), (255, 255, 255, int(22 + 40 * h)), radius=14)
         accent = (255, 110, 120) if self.danger else ACCENT
         if h > 0.01:                        # accent bar grows on the left edge
             bar_h = int((r.height - 20) * h)

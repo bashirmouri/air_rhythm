@@ -7,6 +7,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 ## [Unreleased]
 
 ### Added
+- **Setup guide** on the first start in hand mode (also in Settings > *Setup guide*):
+  1. *Set up your camera*: a large camera view and a live checklist: camera on (and its
+     frame rate), enough light, hand found, each with what to do if it isn't.
+  2. *Try a pinch*: aim at three circles and pinch them; a pinch outside the circle says so.
+  3. *Measure your delay*: straight into calibration, or later.
+  Skippable at every step, or left for mouse play. Players updating from an earlier version
+  have set up already and don't see it.
+- **Tracking hints**: the game watches the camera's frame rate and brightness and how often
+  the hand is lost, and says what would help: "Too dark for good tracking: turn on a light in
+  front of you", "Camera is slow (14 fps): ...", "Hand keeps getting lost: ...". Shown at the
+  top during a song (only while playing) and in the menu's status corner (there without the
+  hand-lost hint, since lowering your hand in a menu is normal). Judged only after the camera
+  has warmed up for 3 s, and brightness is averaged so a single flicker doesn't count.
+- The main button of each step (e.g. *Next*) is highlighted.
+
+### Fixed
+- The packaged-game check used by release builds looked for the old camera log messages
+  ("Camera 0 opened" / "Could not open the webcam"), renamed with the Settings screen; the
+  next release build would have failed it.
 - **Settings screen** (Settings in the menu, or S), with a large live camera view:
   - **Audio:** song, hitsound and menu music volume (menu music can be turned off).
   - **Timing:** a separate **sound delay** for Bluetooth headphones (they play sound

@@ -48,7 +48,7 @@ Gameplay`), never relative.
 | `content/audio_gen.py` | Synthesizes the song, the menu music, the metronome and the hitsound with NumPy |
 | `content/map_gen.py` | Places circles on the song's beats and melody, one beatmap per level; makes sure all generated files exist and aren't damaged |
 | **controls** | |
-| `controls/hand_tracker.py` | Background thread: webcam, MediaPipe, pinch detection, One Euro filter, cursor smoothing, safe model download |
+| `controls/hand_tracker.py` | Background thread: webcam, MediaPipe, pinch detection, One Euro filter, cursor smoothing, safe model download; tracking quality (fps, light, hand lost) and hints |
 | `controls/inputs.py` | One interface for hand and mouse, so the game doesn't care which is used |
 | **ui** | |
 | `ui/widgets.py` | Fonts, text, panels and the menu widgets (Play card, option rows, choice and - / + rows, demo circle) |
@@ -58,6 +58,7 @@ Gameplay`), never relative.
 | `ui/screens/pause.py` | The pause card (Resume / Retry / Quit), drawn by the gameplay screen over the frozen song |
 | `ui/screens/results.py` | Results after a song |
 | `ui/screens/calibration.py` | Measures the player's input delay with a metronome |
+| `ui/screens/onboarding.py` | Setup guide on the first start: camera checklist, pinch practice, delay |
 | `ui/screens/settings.py` | Volumes, sound and input delay, camera and hand tracking, display; changes apply live (`App.apply_settings()`) |
 | **system** | |
 | `system/config.py` | Tuning values and where files live (data folder, portable mode, packaged build) |

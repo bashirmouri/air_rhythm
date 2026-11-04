@@ -155,6 +155,56 @@ def map_to_zone(x, y, zone=config.ACTIVE_ZONE):
     return min(max(u, 0.0), 1.0), min(max(v, 0.0), 1.0)
 
 
+class TrackingQuality:
+    """A running picture of how well tracking can work: camera frame rate, how bright the
+    image is, and how often the hand was lost. Turns it into one hint for the player, or None.
+    Fed by the camera thread, read by the game; no camera needed to test it."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.started = None
+        self.brightness = None                    # smoothed average image brightness, 0-255
+        self._frames = collections.deque()        # capture times within the last second
+        self._losses = collections.deque()        # times a visible hand disappeared
+
+    def frame(self, t, brightness):
+        with self.lock:
+            if self.started is None:
+                self.started = t
+            self.brightness = brightness if self.brightness is None else \
+                0.9 * self.brightness + 0.1 * brightness             # ignore single-frame flickers
+            self._frames.append(t)
+            while self._frames and t - self._frames[0] >= 1.0:
+                self._frames.popleft()
+
+    def hand_lost(self, t):
+        with self.lock:
+            self._losses.append(t)
+            while self._losses and t - self._losses[0] > config.LOST_HAND_HINT[1]:
+                self._losses.popleft()
+
+    def fps(self, now):
+        with self.lock:
+            return sum(1 for f in self._frames if now - f < 1.0)     # frames in the last second
+
+    def hint(self, now, include_losses=True):
+        """What would most help tracking right now, or None if it looks fine.
+        include_losses=False where lowering the hand is normal (menus)."""
+        with self.lock:
+            if self.started is None or now - self.started < config.HINT_WARMUP_S:
+                return None
+            brightness = self.brightness
+            losses = sum(1 for t in self._losses if now - t <= config.LOST_HAND_HINT[1])
+        fps = self.fps(now)
+        if brightness is not None and brightness < config.DARK_BRIGHTNESS:
+            return "Too dark for good tracking: turn on a light in front of you"
+        if fps < config.SLOW_CAMERA_FPS:
+            return f"Camera is slow ({fps} fps): more light helps; close other apps using it"
+        if include_losses and losses >= config.LOST_HAND_HINT[0]:
+            return "Hand keeps getting lost: keep it inside the white box, facing the camera"
+        return None
+
+
 class HandTracker:
     """`zone`, `smoothing_ms` and the pinch thresholds (set_pinch) can be changed while it runs
     (the Settings screen does); a different `camera_index` needs a new tracker."""
@@ -179,6 +229,7 @@ class HandTracker:
         self._fv = OneEuroFilter(config.FILTER_MIN_CUTOFF, config.FILTER_BETA, config.FILTER_D_CUTOFF)
         self._pinch = PinchDetector(*pinch)
         self._last_seen = None   # capture time of the last frame with a hand
+        self.quality = TrackingQuality()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
@@ -254,7 +305,7 @@ class HandTracker:
                  cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
                  cap.get(cv2.CAP_PROP_FPS))
 
-        last_ts, frame_times = -1, []
+        last_ts = -1
         fps_logged_at = time.perf_counter() + 5      # log the real camera fps once, after warm-up
 
         try:
@@ -274,14 +325,16 @@ class HandTracker:
                 landmarks = result.hand_landmarks[0] if result.hand_landmarks else None
                 self._on_frame(landmarks, w, h, t)
 
-                preview = self._make_preview(rgb, landmarks, self._pinch.pinched)
-                frame_times = [ft for ft in frame_times if t - ft < 1.0] + [t]
+                small = cv2.resize(rgb, self.PREVIEW_SIZE)
+                self.quality.frame(t, float(small.mean()))  # before the box and dots are drawn on it
+                preview = self._make_preview(small, landmarks, self._pinch.pinched)
                 with self.lock:
                     self.preview = preview
                     self.preview_id += 1
                     self.ready = True
                 if fps_logged_at and t > fps_logged_at:
-                    log.info("Camera running at %d fps (with hand tracking)", len(frame_times))
+                    log.info("Camera running at %d fps (with hand tracking), brightness %.0f",
+                             self.quality.fps(t), self.quality.brightness)
                     fps_logged_at = None
         finally:
             cap.release()
@@ -311,6 +364,8 @@ class HandTracker:
             if self._pinch.pinched:
                 self._pinch.pinched = False
                 self.events.put(("release", t, self.cursor))
+            if self.visible:
+                self.quality.hand_lost(t)
             self._fu.reset()
             self._fv.reset()
             with self.lock:
@@ -318,9 +373,9 @@ class HandTracker:
                 self._samples.clear()
         # otherwise the hand was lost only briefly: keep everything as it was
 
-    def _make_preview(self, rgb, landmarks, pinched):
+    def _make_preview(self, small, landmarks, pinched):
+        """Draws the hand area box and the hand's points onto the small camera image."""
         pw, ph = self.PREVIEW_SIZE
-        small = cv2.resize(rgb, (pw, ph))
         left, top, right, bottom = self.zone
         cv2.rectangle(small, (int(left * pw), int(top * ph)),
                       (int(right * pw), int(bottom * ph)), (255, 255, 255), 1)

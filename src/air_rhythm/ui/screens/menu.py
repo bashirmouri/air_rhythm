@@ -114,6 +114,8 @@ class MenuScreen(ButtonScreen):
             msg, dot = status, ui.WARN
         elif self.app.warning:
             msg, dot = self.app.warning, ui.WARN
+        elif hint := self.app.input.hint(include_losses=False):    # lowering the hand is normal here
+            msg, dot = hint, ui.WARN
         else:
             msg, dot = "Hand tracking ready", ui.OK
         img = ui.render(msg, 15, ui.WHITE, "semibold")

@@ -12,6 +12,7 @@ from air_rhythm.system.settings import RANGES
 from air_rhythm.ui import widgets as ui
 from air_rhythm.ui.screens.base import ButtonScreen
 from air_rhythm.ui.screens.calibration import CalibrationScreen
+from air_rhythm.ui.screens.onboarding import OnboardingScreen
 
 LEFT_X, RIGHT_X, COL_W = 64, 680, 536
 TOP = 166                       # first row
@@ -83,6 +84,7 @@ class SettingsScreen(ButtonScreen):
                 lambda r: self._choice(r, "Pinch sensitivity", "pinch_sensitivity",
                                        config.PINCH_SENSITIVITY),
                 lambda r: self._choice(r, "Cursor smoothing", "cursor_smoothing", config.CURSOR_SMOOTHINGS),
+                lambda r: ui.OptionRow(r, "Setup guide", self.setup_guide, lambda: "camera, pinch, delay"),
             ]),
         ])
         return rows
@@ -137,6 +139,9 @@ class SettingsScreen(ButtonScreen):
     def back(self):
         from air_rhythm.ui.screens.menu import MenuScreen  # menu.py imports this file
         self.app.goto(MenuScreen(self.app))
+
+    def setup_guide(self):
+        self.app.goto(OnboardingScreen(self.app))
 
     def calibrate(self):
         if self.app.audio_ok:                    # calibration is done by ear: it needs sound
